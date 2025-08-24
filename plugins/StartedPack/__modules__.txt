@@ -1,0 +1,5 @@
+wikipedia
+googletrans
+gtts
+speedtest
+g4f
