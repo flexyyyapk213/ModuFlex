@@ -72,7 +72,7 @@ app = None
 def check_updates():
     global there_is_update
     # Ссылка на официальный источник, так что вирусов не должно быть, нужно детально проверять ссылку(так же самое и в плагинах)
-    link = 'https://github.com/flexyyyapk/userbotmynew/archive/refs/heads/main.zip'
+    link = 'https://github.com/flexyyyapk213/ModuFlex/archive/refs/heads/main.zip'
 
     with open(f'temp/main.zip', 'wb') as f:
         with requests.get(link, stream=True) as r:
@@ -324,7 +324,7 @@ async def update_script(_, msg: types.Message):
     await msg.edit('Проверка обновлений...')
     
     # Ссылка на официальный источник, так что вирусов не должно быть, нужно детально проверять ссылку(так же самое и в плагинах)
-    link = 'https://github.com/flexyyyapk/userbotmynew/archive/refs/heads/main.zip'
+    link = 'https://github.com/flexyyyapk213/ModuFlex/archive/refs/heads/main.zip'
 
     with open(f'temp/main.zip', 'wb') as f:
         with requests.get(link, stream=True) as r:
@@ -474,4 +474,5 @@ if not send_msg_onstart_up:
     effect = Rain('Скрипт запущен, подождите 5 секунд\nПриятного использования!')
     with effect.terminal_output() as terminal:
         for frame in effect:
+
             terminal.print(frame)
