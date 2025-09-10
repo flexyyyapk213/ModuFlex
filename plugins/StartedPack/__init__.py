@@ -684,7 +684,7 @@ async def check_ping(_, msg: Message):
 
 @func(filters.command('code', prefixes=['.', '!', '/']) & filters.me)
 async def code_runner(_, msg: Message):
-    code = msg.text.split('code ', maxsplit=1)[1].strip()
+    code = msg.text.split('code', maxsplit=1)[1].strip()
 
     output = io.StringIO()
     sys.stdout = output

@@ -1,4 +1,5 @@
-from typing import Type, Callable, Union, Optional, List, Type
+from types import MappingProxyType
+from typing import Any, Type, Callable, Union, Optional, List, Type, Mapping
 import inspect
 from pyrogram import filters
 import os
@@ -8,6 +9,8 @@ import logging
 import traceback
 import sys
 from alive_progress import alive_it, styles
+import json
+import copy
 
 logging.basicConfig(filename='script.log', level=logging.WARN)
 
@@ -32,6 +35,67 @@ CONFLICTS = [
     filters.group
 ]
 
+class MappingConfig(dict):
+    def __init__(self, plugin_name: str):
+        self.plugin_name = plugin_name
+
+    def __setitem__(self, key, value):
+        Data.config[self.plugin_name][key] = value
+
+        self._save()
+
+    def __getitem__(self, key):
+        return Data.config[self.plugin_name][key]
+
+    def __delitem__(self, key):
+        del Data.config[self.plugin_name][key]
+
+        self._save()
+
+    def update(self, _dict: dict):
+        Data.config[self.plugin_name].update(_dict)
+
+        self._save()
+
+    def keys(self):
+        return Data.config[self.plugin_name].keys()
+
+    def values(self):
+        return Data.config[self.plugin_name].values()
+
+    def items(self):
+        return Data.config[self.plugin_name].items()
+
+    def _save(self):
+        with open('configuration.json', 'w', encoding='utf-8') as f:
+            json.dump(Data.config, f, ensure_ascii=False)
+
+    def clear(self):
+        Data.config[self.plugin_name].clear()
+
+        self._save()
+
+    def popitem(self):
+        _item = Data.config[self.plugin_name].popitem()
+
+        self._save()
+
+        return _item
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({Data.config[self.plugin_name]})"
+
+    def __len__(self) -> int:
+        return Data.config[self.plugin_name].__len__()
+
+    def pop(self, key):
+        Data.config[self.plugin_name].pop(key)
+
+        self._save()
+
+    def copy(self):
+        return Data.config[self.plugin_name].copy()
+
 class Data:
     """
     Центр хранения модулей.
@@ -47,9 +111,63 @@ class Data:
 
     initializations = []
 
+    config = {}
+
+    try:
+        with open('configuration.json', encoding='utf-8') as f:
+            config = json.load(f)
+    except FileNotFoundError:
+        with open('configuration.json', 'w', encoding='utf-8') as f:
+            json.dump(config, f, ensure_ascii=False)
+    except Exception as e:
+        logging.error(traceback.format_exc())
+        print(e)
+
     @classmethod
     def get_name_plugins() -> list[str]:
+        """
+        Возвращает список плагинов.
+        """
         return list(Data.description.keys())
+    
+    @classmethod
+    def get_config(cls, plugin_name: Optional[str]=None) -> Union[MappingConfig, None]:
+        """
+        Возвращает словарь настроек.
+        Если оставить `plugin_name` None, вернёт конфиги плагинов.
+        Если плагин попытается изменить данные чужого плагина, то у него этого не получиться.
+
+        Args:
+            plugin_name (Optional[str]=None): Имя плагина
+        Returns:
+            Union[
+            Mapping[str, Any] - словарь нельзя изменить,
+            dict - словарь можно изменить,
+            None - конфиг пуст, но он сразу же создался
+            ]
+        """
+        if plugin_name is not None:
+            if plugin_name not in Data.config:
+                Data.config.update({plugin_name: {}})
+
+                with open('configuration.json', 'w', encoding='utf-8') as f:
+                    json.dump(Data.config, f, ensure_ascii=False)
+
+                return None
+            
+            frame = inspect.currentframe()
+            caller_frame = frame.f_back
+            caller_filename = caller_frame.f_code.co_filename
+            
+            path_parts = os.path.normpath(caller_filename).split(os.sep)
+            pack_name = path_parts[path_parts.index('plugins') + 1]
+            
+            if plugin_name == pack_name:
+                return MappingConfig(plugin_name)
+            else:
+                return copy.deepcopy(Data.config[plugin_name])
+        else:
+            return copy.deepcopy(Data.config)
 
 class chatType:
     DEFAULT = "default"

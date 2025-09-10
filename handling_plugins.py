@@ -40,10 +40,12 @@ def handling_plugins():
                     Data.description.update({folder: dict(md.__dict__.items())[folder].__description__})
                 
                 if hasattr(dict(md.__dict__.items())[folder], 'initialization'):
+                    print(folder)
                     if not inspect.isfunction(dict(md.__dict__.items())[folder].initialization):
                         print(f'\033[41mОшибка в плагине {folder}: инициализация не корректная\033[0m')
                         continue
                     
+                    print('successful')
                     Data.initializations.append(dict(md.__dict__.items())[folder].initialization)
     except Exception as e:
         traceback.print_exc()

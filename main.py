@@ -1,7 +1,7 @@
 import importlib.util
 import subprocess
 
-from __init__ import __modules__, __version__ as _version_
+from __init__ import __modules__
 
 from alive_progress import alive_it, styles
 
@@ -65,12 +65,13 @@ except Exception as e:
     pass
 
 there_is_update = False
+features_of_the_version = []
 stop = False
 
 app = None
 
 def check_updates():
-    global there_is_update
+    global there_is_update, features_of_the_version
     # Ссылка на официальный источник, так что вирусов не должно быть, нужно детально проверять ссылку(так же самое и в плагинах)
     link = 'https://github.com/flexyyyapk213/ModuFlex/archive/refs/heads/main.zip'
 
@@ -89,9 +90,16 @@ def check_updates():
             file_name = fil_name
             break
     
-    version = __import__(f'temp.{file_name}.__init__', fromlist=['__version__']).__version__
+    version: str = __import__(f'temp.{file_name}.__init__', fromlist=['__version__']).__version__
 
-    if version != _version_:
+    __version__ = __version.parse(this_version)
+
+    _version = __version.parse(version)
+
+    if __version__.is_prerelease:
+        features_of_the_version.append('this_is_prerelease')
+
+    if _version > __version__:
         if not send_msg_onstart_up:
             DecryptConfig(1)
 
@@ -101,6 +109,9 @@ def check_updates():
                     terminal.print(frame)
         else:
             there_is_update = True
+    elif _version < __version__:
+        features_of_the_version.append('you_are_tester')
+        return
     
     for fil_name in os.listdir('temp'):
         try:
@@ -143,9 +154,12 @@ async def help(_, msg: types.Message):
     await app.delete_messages(msg.chat.id, msg.id)
 
     if len(msg.text.split()) == 1:
-        help_text = 'Список плагинов:\n'
+        help_text = 'Список плагинов:\n0) <code>ModuFlex</code>&lt;MAIN&gt;\n'
 
         for indx, plugin in enumerate(Data.description):
+            if plugin == 'ModuFlex':
+                continue
+
             help_text += f'{indx+1}) <code>{plugin}</code>\n'
 
             if indx >= 30:
@@ -162,7 +176,7 @@ async def help(_, msg: types.Message):
         try:
             page = int(msg.text.split()[1])
         except ValueError as e:
-            return await msg.edit('Неверный номер страницы')
+            return await msg.edit('Неверный номер страницы.')
 
         pages = len(Data.description)/30
 
@@ -186,12 +200,9 @@ async def help(_, msg: types.Message):
         try:
             help_text = f'Описание плагина <code>{plugin}</code>:\n{dict(Data.description[plugin].__dict__)["main_description"].description}\n\nСписок функций плагина:\n'
         except KeyError:
-            help_text = 'Плагин не найден'
+            return await msg.edit('Плагин не найден.')
 
-        try:
-            funcs = dict(Data.description[plugin].__dict__.items())['args_description']
-        except KeyError:
-            help_text = 'Плагин не найден'
+        funcs = dict(Data.description[plugin].__dict__.items())['args_description']
 
         pages = len(funcs)/25
 
@@ -324,7 +335,7 @@ async def update_script(_, msg: types.Message):
     await msg.edit('Проверка обновлений...')
     
     # Ссылка на официальный источник, так что вирусов не должно быть, нужно детально проверять ссылку(так же самое и в плагинах)
-    link = 'https://github.com/flexyyyapk213/ModuFlex/archive/refs/heads/main.zip'
+    link = 'https://github.com/flexyyyapk213/ModuFlex/archive/refs/heads/main.zipp'
 
     with open(f'temp/main.zip', 'wb') as f:
         with requests.get(link, stream=True) as r:
@@ -343,7 +354,7 @@ async def update_script(_, msg: types.Message):
 
     _file_name = os.listdir(f'temp/{file_name}')
     
-    if (version := __import__(f'temp.{file_name}.__init__', fromlist=['__version__', '__modules__'])).__version__ != this_version:
+    if __version.parse((version := __import__(f'temp.{file_name}.__init__', fromlist=['__version__', '__modules__'])).__version__) > __version.parse(this_version):
         if not __version.parse(python_version()) >= __version.parse('3.8'):
             return await msg.edit('Обновление найдено, но версия интерпретатора не подходит(требуется 3.8 и больше)')
 
@@ -357,8 +368,20 @@ async def update_script(_, msg: types.Message):
             subprocess.run(['pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        botvenv_has_been_changed = False
+        
+        botvenv_python_version = subprocess.run([f'temp/{file_name}/botvenv/Scripts/python.exe', '-V'], stdout=subprocess.PIPE)
+
+        if botvenv_python_version.stdout.decode('utf-8').split(maxsplit=1)[1] != python_version():
+            botvenv_has_been_changed = True
         
         for fl_name in _file_name:
+            if fl_name == 'botvenv' and not botvenv_has_been_changed:
+                continue
+            else:
+                shutil.copytree(f'temp/{file_name}', script_dir, dirs_exist_ok=True)
+            
             if fl_name == 'config.ini':
                 continue
 
@@ -371,8 +394,6 @@ async def update_script(_, msg: types.Message):
             
             if fl_name == 'temp':
                 continue
-
-            print(f'temp/{file_name}/{fl_name}', f'{os.path.split(__file__)[0]}')
             
             shutil.move(f'temp/{file_name}/{fl_name}', f'{os.path.split(__file__)[0]}')
 
@@ -409,7 +430,8 @@ async def send_update_function(app: Client, message: types.Message):
                         "ChatType.PRIVATE": "private",
                         "ChatType.CHANNEL": "channel",
                         "ChatType.GROUP": "chat",
-                        "ChatType.SUPERGROUP": "chat"
+                        "ChatType.SUPERGROUP": "chat",
+                        "ChatType.BOT": "bot"
                     }
                 
                 if _func['type'] == chat_types[str(message.chat.type)] or _func['type'] == 'all':
@@ -419,7 +441,7 @@ async def send_update_function(app: Client, message: types.Message):
                         executor.submit(_func['func'], app, message)
 
 async def main(_app: Client, retries: int=None):
-    global stop, app
+    global stop, app, features_of_the_version
 
     app = _app
 
@@ -430,12 +452,50 @@ async def main(_app: Client, retries: int=None):
     app.add_handler(MessageHandler(send_version, filters.command('version', ['.', '/', '!']) & filters.me))
     
     check_updates()
+
+    msgs = []
+
+    for feature in features_of_the_version:
+        if feature == 'you_are_tester':
+            msg = await app.send_message('me', '👍ТЫ ТЕСТЕР!', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=random.choice([
+                6325685291621287657,
+                6325462176660195024,
+                5370853232098681087,
+                6001555482865569587,
+                6046478147837235883,
+                6046554675564515809,
+                5195083971842547465,
+                5395448151865841306,
+                5395855254635960960,
+                5458602128375290972,
+                5197335548317933406,
+                5244673458083734407,
+                5240108114006516325,
+                5244946884291732268,
+                5377583918297916260,
+                5319006409830965724,
+                5318977191168452300
+            ]))])
+        
+        if feature == 'this_is_prerelease':
+            await app.send_message('me', '👍Данная версия находится в бета релизе, возможны баги!!!', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=5352964886584367997)])
+        
+        try:
+            msgs.append(msg)
+        except:
+            pass
     
     handling_plg()
 
     handling_updates()
 
     app.add_handler(MessageHandler(all_messages))
+
+    for _msg in msgs:
+        await _msg.delete()
+    
+    del msgs
+    del _msg
 
     print(pyfiglet.figlet_format("ModuFlex", font=random.choice(pyfiglet.FigletFont.getFonts())))
 
@@ -453,6 +513,11 @@ async def main(_app: Client, retries: int=None):
             5456254812783910040,
             5244469322583120930
         ]))])
+    else:
+        effect = Rain('Скрипт запущен, подождите 5 секунд\nПриятного использования!')
+        with effect.terminal_output() as terminal:
+            for frame in effect:
+                terminal.print(frame)
     
     start = time.time()
 
@@ -469,10 +534,3 @@ async def main(_app: Client, retries: int=None):
                     pass
                 finally:
                     start = None
-
-if not send_msg_onstart_up:
-    effect = Rain('Скрипт запущен, подождите 5 секунд\nПриятного использования!')
-    with effect.terminal_output() as terminal:
-        for frame in effect:
-
-            terminal.print(frame)

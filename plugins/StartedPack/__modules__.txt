@@ -1,5 +1,6 @@
 wikipedia
 googletrans
 gtts
-speedtest
+speedtest-cli
 g4f
+microsandbox

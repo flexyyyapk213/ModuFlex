@@ -1,6 +1,25 @@
 import importlib.util
 import subprocess
 import sys
+from pathlib import Path
+import os
+
+venv_path = Path(sys.executable)
+
+# Run with botvenv
+if list(venv_path.parts)[-3] != 'botvenv':
+    path_to_bot = Path(__file__)
+
+    folders = [entry.name for entry in os.scandir(path_to_bot.parents[0]) if entry.is_dir()]
+
+    if 'botvenv' not in folders:
+        if importlib.util.find_spec('venv') is None:
+            subprocess.run([sys.executable, '-m', 'pip', 'install', 'venv'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        subprocess.run([sys.executable, '-m', 'venv', 'botvenv'])
+
+    subprocess.run([str(path_to_bot.parents[0] / 'botvenv' / 'Scripts' / 'python.exe'), str(path_to_bot.parents[0] / 'run.py')])
+    sys.exit()
 
 from __init__ import __modules__
 
@@ -63,4 +82,3 @@ while retries < max_retries:
         print(e)
 
     retries += 1
-
