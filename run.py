@@ -18,7 +18,12 @@ if list(venv_path.parts)[-3] != 'botvenv':
 
         subprocess.run([sys.executable, '-m', 'venv', 'botvenv'])
 
-    subprocess.run([str(path_to_bot.parents[0] / 'botvenv' / 'Scripts' / 'python.exe'), str(path_to_bot.parents[0] / 'run.py')])
+    if sys.platform == 'win32':
+        python_exc = [str(path_to_bot.parents[0] / 'botvenv' / 'Scripts' / 'python.exe'), str(path_to_bot.parents[0] / 'run.py')]
+    else:
+        python_exc = [str(path_to_bot.parents[0] / 'botvenv' / 'bin' / 'python'), str(path_to_bot.parents[0] / 'run.py')]
+
+    subprocess.run(python_exc)
     sys.exit()
 
 from __init__ import __modules__
