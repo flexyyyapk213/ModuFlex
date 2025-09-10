@@ -494,8 +494,15 @@ async def main(_app: Client, retries: int=None):
     for _msg in msgs:
         await _msg.delete()
     
-    del msgs
-    del _msg
+    try:
+        del msgs
+    except:
+        pass
+    
+    try:
+        del _msg
+    except:
+        pass
 
     print(pyfiglet.figlet_format("ModuFlex", font=random.choice(pyfiglet.FigletFont.getFonts())))
 
@@ -533,4 +540,5 @@ async def main(_app: Client, retries: int=None):
                 except:
                     pass
                 finally:
+
                     start = None
