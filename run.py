@@ -16,15 +16,25 @@ if list(venv_path.parts)[-3] != 'botvenv':
         if importlib.util.find_spec('venv') is None:
             subprocess.run([sys.executable, '-m', 'pip', 'install', 'venv'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        subprocess.run([sys.executable, '-m', 'venv', 'botvenv'])
+        subprocess.run([sys.executable, '-m', 'venv', 'botvenv'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    path_to_botvenv = Path(__file__)
 
     if sys.platform == 'win32':
-        python_exc = [str(path_to_bot.parents[0] / 'botvenv' / 'Scripts' / 'python.exe'), str(path_to_bot.parents[0] / 'run.py')]
+        if (path_to_botvenv.parents[0] / 'botvenv' / 'Scripts').exists() and (path_to_botvenv.parents[0] / 'botvenv' / 'Scripts' / 'python.exe').is_file():
+            python_exc = [str(path_to_bot.parents[0] / 'botvenv' / 'Scripts' / 'python.exe'), str(path_to_bot.parents[0] / 'run.py')]
     else:
-        python_exc = [str(path_to_bot.parents[0] / 'botvenv' / 'bin' / 'python'), str(path_to_bot.parents[0] / 'run.py')]
+        if (path_to_botvenv.parents[0] / 'botvenv' / 'bin').exists() and (path_to_botvenv.parents[0] / 'botvenv' / 'bin' / 'python').is_file():
+            python_exc = [str(path_to_bot.parents[0] / 'botvenv' / 'bin' / 'python'), str(path_to_bot.parents[0] / 'run.py')]
 
-    subprocess.run(python_exc)
-    sys.exit()
+    try:
+        subprocess.run(python_exc, check=True)
+
+        sys.exit()
+    except PermissionError:
+        pass
+    except FileNotFoundError:
+        pass
 
 from __init__ import __modules__
 
@@ -44,6 +54,7 @@ from pyrogram.client import Client
 from sqlite3 import OperationalError
 from main import main, api_id, api_hash, phone_number, password
 import gc
+import traceback
 
 max_retries = 10
 retry_delay = 15
@@ -59,7 +70,10 @@ async def start_bot():
             )
 
     async with app:
-        await main(app, retries)
+        try:
+            await main(app, retries)
+        except:
+            traceback.print_exc()
     
     del app
     gc.collect()
@@ -76,7 +90,6 @@ while retries < max_retries:
     except KeyboardInterrupt:
         print('<3')
         break
-
     except (ConnectionError, TimeoutError) as e:
         print(e)
         print('Ошибка с соединением...')
