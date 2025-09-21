@@ -4,7 +4,7 @@ __author__ = 'flexyyyapk'
 __link__ = 'https://t.me/oprosmenya'
 __gitHub__ = 'https://github.com/flexyyyapk213/ModuFlex'
 __news__ = """
-```✨Обновление 0.0.9b1```
+```✨Обновление 0.0.9b2```
 ```💡Что нового?```
 ```update
 - В config.ini можно добавить два новых параметров: 
@@ -15,4 +15,5 @@ __news__ = """
 __python__ = '>=3.8'
 
 __modules__ = ['pyrogram', 'terminaltexteffects', 'requests', 'platform', 'pyfiglet', 'alive_progress', 'packaging', 'tgcrypto']
+
 
