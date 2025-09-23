@@ -35,6 +35,8 @@ if list(venv_path.parts)[-3] != 'botvenv':
         pass
     except FileNotFoundError:
         pass
+    except Exception as e:
+        print(e)
 
 from __init__ import __modules__
 
@@ -100,3 +102,4 @@ while retries < max_retries:
         print(e)
 
     retries += 1
+
