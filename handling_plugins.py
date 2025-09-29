@@ -1,5 +1,5 @@
 import os
-from loads import Data, Description
+from loads import Data, Description, download_library
 import inspect
 import traceback
 import logging
@@ -15,6 +15,9 @@ def handling_plugins():
         folders = os.listdir('plugins')
 
         for folder in folders:
+            if ' ' in folder:
+                continue
+            
             init_file = os.path.join('plugins', folder, '__init__.py')
             if os.path.exists(init_file):
                 Data.cache.update({
@@ -25,11 +28,10 @@ def handling_plugins():
                                 })
 
                 if os.path.exists(os.path.join('plugins', folder, '__modules__.txt')):
-                    with open(os.path.join('plugins', folder, '__modules__.txt')) as modules:
-                        for module in alive_it(modules.readlines(), title='Установка доп. модулей', spinner=styles.SPINNERS['pulse'], theme='smooth'):
-                            if importlib.util.find_spec(module) is None:
-                                subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL)
-                
+                    if not Data.config['ModuFlex'].get('libs_is_dwnld', False) or Data.config['ModuFlex'].get('libs_is_dwnld', False) and not Data.one_download_libs:
+                        with open(os.path.join('plugins', folder, '__modules__.txt')) as modules:
+                            download_library(modules.readlines())
+
                 md = __import__('plugins.' + folder + '.__init__')
 
                 if hasattr(dict(md.__dict__.items())[folder], '__description__'):
@@ -47,7 +49,7 @@ def handling_plugins():
                     Data.initializations.append(dict(md.__dict__.items())[folder].initialization)
     except Exception as e:
         traceback.print_exc()
-        logging.warn(traceback.format_exc())
+        logging.warning(traceback.format_exc())
 
 def handle_plugin(pack_name: str):
     try:
@@ -60,10 +62,7 @@ def handle_plugin(pack_name: str):
         
         if os.path.exists(os.path.join('plugins', pack_name, '__modules__.txt')):
             with open(os.path.join('plugins', pack_name, '__modules__.txt')) as modules:
-                for module in alive_it(modules.readlines(), title='Установка доп. модулей', spinner=styles.SPINNERS['pulse'], theme='smooth'):
-                    if importlib.util.find_spec(module) is None:
-                        subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL)
-        
+                download_library(modules.readlines())        
         md = __import__('pluging.' + pack_name + '.__init__.py')
 
         if hasattr(dict(md.__dict__.items())[pack_name], '__description__'):
@@ -81,5 +80,4 @@ def handle_plugin(pack_name: str):
             Data.initializations.append(dict(md.__dict__.items())[pack_name].initialization)
     except Exception as e:
         traceback.print_exc()
-
         logging.warn(traceback.format_exc())

@@ -1,7 +1,7 @@
 import importlib.util
 import subprocess
 
-from __init__ import __modules__
+from __init__ import __modules__, __news__
 
 from alive_progress import alive_it, styles
 
@@ -21,6 +21,10 @@ from typing import Type
 import time
 import traceback
 
+from datetime import datetime
+import json
+from pathlib import Path
+
 from pyrogram import Client, filters, enums
 from pyrogram.handlers import MessageHandler
 from pyrogram import types
@@ -35,14 +39,14 @@ from pyrogram.enums import ParseMode
 from platform import python_version
 from packaging import version as __version
 
-from loads import Data
+from loads import Data, ScriptState
 from handling_plugins import handling_plugins as handling_plg, handle_plugin
 from __init__ import __version__ as this_version
 
 logging.basicConfig(filename='script.log', level=logging.WARN)
 
 # Чистка логов
-if os.path.getsize('script.log') >= 1_048_576:
+if os.path.getsize('script.log') >= 262_144:
     with open('script.log', 'w') as f:
         pass
 
@@ -61,12 +65,20 @@ try:
 
     phone_number = re.search(r'phone_number\s*=\s*(\d+)', file)
     password = re.search(r'password\s*=\s*[\'"](.*?)[\'"]', file)
+
+    ask_to_downloads = re.search(r'ask_downloads\s*=\s(true|false)', file)
+
+    if ask_to_downloads is not None: Data.ask_downloads = {'false': True, 'true': False}[ask_to_downloads.group(1)]
+
+    one_download_libs = re.search(r'one_download_libs\s*=\s(true|false)', file)
+
+    if one_download_libs is not None: Data.one_download_libs = {'true': True, 'false': False}[one_download_libs.group(1)]
 except Exception as e:
     pass
 
 there_is_update = False
 features_of_the_version = []
-stop = False
+stop = ScriptState.started
 
 app = None
 
@@ -74,6 +86,11 @@ def check_updates():
     global there_is_update, features_of_the_version
     # Ссылка на официальный источник, так что вирусов не должно быть, нужно детально проверять ссылку(так же самое и в плагинах)
     link = 'https://github.com/flexyyyapk213/ModuFlex/archive/refs/heads/main.zip'
+
+    temp_path = Path(__file__)
+
+    if not (temp_path.parents[0] / 'temp').is_dir():
+        os.mkdir('temp')
 
     with open(f'temp/main.zip', 'wb') as f:
         with requests.get(link, stream=True) as r:
@@ -111,7 +128,6 @@ def check_updates():
             there_is_update = True
     elif _version < __version__:
         features_of_the_version.append('you_are_tester')
-        return
     
     for fil_name in os.listdir('temp'):
         try:
@@ -327,7 +343,7 @@ async def remove_plugin(_, msg: types.Message):
 
     await asyncio.sleep(1)
 
-    stop = True
+    stop = ScriptState.restart
 
 async def update_script(_, msg: types.Message):
     global stop
@@ -335,7 +351,7 @@ async def update_script(_, msg: types.Message):
     await msg.edit('Проверка обновлений...')
     
     # Ссылка на официальный источник, так что вирусов не должно быть, нужно детально проверять ссылку(так же самое и в плагинах)
-    link = 'https://github.com/flexyyyapk213/ModuFlex/archive/refs/heads/main.zipp'
+    link = 'https://github.com/flexyyyapk213/ModuFlex/archive/refs/heads/main.zip'
 
     with open(f'temp/main.zip', 'wb') as f:
         with requests.get(link, stream=True) as r:
@@ -412,7 +428,7 @@ async def update_script(_, msg: types.Message):
 
         await msg.edit(f'Обновление успешно установлено\n{version.__news__}\nПерезапуск скрипта...', parse_mode=ParseMode.MARKDOWN)
 
-        stop = True
+        stop = ScriptState.restart
     else:
         await msg.edit('Обновление не найдено')
 
@@ -440,7 +456,19 @@ async def send_update_function(app: Client, message: types.Message):
                     else:
                         executor.submit(_func['func'], app, message)
 
-async def main(_app: Client, retries: int=None):
+async def _stop(_, message: types.Message):
+    global stop
+    stop = ScriptState.exit
+
+    await message.edit_text('Скрипт завершён.')
+
+async def _restart(_, message: types.Message):
+    global stop
+    stop = ScriptState.restart
+
+    await message.edit_text('Перезапуск...')
+
+async def main(_app: Client, retries: int=None) -> int:
     global stop, app, features_of_the_version
 
     app = _app
@@ -450,6 +478,8 @@ async def main(_app: Client, retries: int=None):
     app.add_handler(MessageHandler(remove_plugin, filters.command('rmmd', ['.', '/', '!']) & filters.me))
     app.add_handler(MessageHandler(update_script, filters.command('update', ['.', '/', '!']) & filters.me))
     app.add_handler(MessageHandler(send_version, filters.command('version', ['.', '/', '!']) & filters.me))
+    app.add_handler(MessageHandler(_stop, filters.command('stop', ['.', '/', '!']) & filters.me))
+    app.add_handler(MessageHandler(_restart, filters.command('restart', ['.', '/', '!']) & filters.me))
     
     check_updates()
 
@@ -478,16 +508,43 @@ async def main(_app: Client, retries: int=None):
             ]))])
         
         if feature == 'this_is_prerelease':
-            await app.send_message('me', '👍Данная версия находится в бета релизе, возможны баги!!!', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=5352964886584367997)])
+            await app.send_message('me', '👍Данная версия находится в бета релизе, возможны баги!', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=5352964886584367997)])
         
         try:
             msgs.append(msg)
         except:
             pass
+
+    if 'ModuFlex' not in Data.config:
+        Data.config.update({'ModuFlex': {'dwnlds_libs_date': (datetime.now()).strftime('%Y-%m-%d'), 'libs_is_dwnld': False}})
+
+        Data.__save_config__()
+    else:
+        try:
+            _date = datetime.strptime(Data.config['ModuFlex']['dwnlds_libs_date'], '%Y-%m-%d').date()
+        except:
+            _date = datetime(1970, 1, 1)
+
+            Data.config['ModuFlex']['dwnlds_libs_date'] = datetime.today().date().strftime('%Y-%m-%d')
+
+            Data.__save_config__()
+
+        if _date == datetime.today().date():
+            Data.skip_downloads = True
     
     handling_plg()
 
     handling_updates()
+
+    if 'libs_is_dwnld' not in Data.config['ModuFlex']:
+        Data.config['ModuFlex'].update({'libs_is_dwnld': True})
+
+        Data.__save_config__()
+    else:
+        if not Data.config['ModuFlex']['libs_is_dwnld']:
+            Data.config['ModuFlex']['libs_is_dwnld'] = True
+        
+            Data.__save_config__()
 
     app.add_handler(MessageHandler(all_messages))
 
@@ -498,7 +555,7 @@ async def main(_app: Client, retries: int=None):
         del msgs
     except:
         pass
-    
+
     try:
         del _msg
     except:
@@ -530,7 +587,7 @@ async def main(_app: Client, retries: int=None):
 
     if retries != None: retries -= 1
 
-    while not stop:
+    while stop == ScriptState.started:
         await asyncio.sleep(1)
 
         if start is not None:
@@ -540,5 +597,6 @@ async def main(_app: Client, retries: int=None):
                 except:
                     pass
                 finally:
-
                     start = None
+
+    return stop

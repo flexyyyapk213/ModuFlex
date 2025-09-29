@@ -57,13 +57,19 @@ from sqlite3 import OperationalError
 from main import main, api_id, api_hash, phone_number, password
 import gc
 import traceback
+from loads import ScriptState
 
 max_retries = 10
 retry_delay = 15
 retries = 0
 
-async def start_bot():
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
+
+async def start_bot() -> int:
     global retries
+
+    result = ScriptState.started
 
     app = Client(
             'db', api_id=api_id.group(1) if api_id is not None else None, api_hash=api_hash.group(1) if api_hash is not None else None,
@@ -73,22 +79,28 @@ async def start_bot():
 
     async with app:
         try:
-            await main(app, retries)
-        except:
+            result = await main(app, retries)
+        except KeyboardInterrupt:
+            result = ScriptState.exit
+        except Exception:
             traceback.print_exc()
+
+            result = ScriptState.error
     
     del app
     gc.collect()
 
+    return result
+
 while retries < max_retries:
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        result = asyncio.run(start_bot())
 
-        asyncio.run(start_bot())
-
-        subprocess.run([sys.executable] + sys.argv)
-        sys.exit()
+        if result == ScriptState.exit:
+            sys.exit()
+        elif result != ScriptState.error:
+            subprocess.run([sys.executable] + sys.argv)
+            sys.exit()
     except KeyboardInterrupt:
         print('<3')
         break
@@ -96,10 +108,11 @@ while retries < max_retries:
         print(e)
         print('Ошибка с соединением...')
         sleep(retry_delay)
+        continue
     except OperationalError as e:
         sleep(5)
+        print(e, '.Возможно скрипт работает где то ещё.')
     except Exception as e:
         print(e)
 
     retries += 1
-

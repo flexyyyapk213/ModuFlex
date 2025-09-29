@@ -6,5 +6,7 @@ __description__ = Description(
     FuncDescription('dwlmd', 'Скачивает сторонний плагин по ссылке из GitHub.', prefixes=['.', '/', '!'], parameters=['ссылка .zip файла']),
     FuncDescription('rmmd', 'Удаляет модуль.', prefixes=['.', '/', '!'], parameters=['имя плагина']),
     FuncDescription('update', 'Обновляет скрипт.', prefixes=['.', '/', '!']),
-    FuncDescription('version', 'Показывает текущую версию и есть ли обновление.', prefixes=['.', '/', '!'])
+    FuncDescription('version', 'Показывает текущую версию и есть ли обновление.', prefixes=['.', '/', '!']),
+    FuncDescription('stop', 'Останавливает скрипт.', prefixes=['.', '/', '!']),
+    FuncDescription('restart', 'Перезапускает скрипт.', prefixes=['.', '/', '!'])
 )

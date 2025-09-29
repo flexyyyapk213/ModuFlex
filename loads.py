@@ -11,6 +11,7 @@ import sys
 from alive_progress import alive_it, styles
 import json
 import copy
+from enum import IntEnum
 
 logging.basicConfig(filename='script.log', level=logging.WARN)
 
@@ -25,7 +26,8 @@ __all__ = [
     'MainDescription',
     'FuncDescription',
     'Description',
-    'handleMethods'
+    'handleMethods',
+    'download_library'
 ]
 
 CONFLICTS = [
@@ -34,6 +36,12 @@ CONFLICTS = [
     filters.channel,
     filters.group
 ]
+
+class ScriptState(IntEnum):
+    started = 0
+    restart = 1
+    error = -1
+    exit = 2
 
 class MappingConfig(dict):
     def __init__(self, plugin_name: str):
@@ -95,6 +103,22 @@ class MappingConfig(dict):
 
     def copy(self):
         return Data.config[self.plugin_name].copy()
+    
+    def get(self, key, default=None):
+        return Data.config[self.plugin_name].get(key, default)
+
+    def setdefault(self, _dict: dict) -> None:
+        """
+        Устанавливает по умолчанию заданый словарь, если сам конфиг плагина пуст.
+        Если же конфиг плагина не пуст, то функция ищет не достающие ключи и вставляет.
+        Удобно для тех, кто добавляет новые ключи и не хочет писать для такого случая код.
+        """
+        if not Data.config[self.plugin_name]:
+            self.update(_dict)
+        else:
+            for key in _dict:
+                if key not in Data.config[self.plugin_name]:
+                    self.update({key: copy.deepcopy(_dict[key])})
 
 class Data:
     """
@@ -113,6 +137,12 @@ class Data:
 
     config = {}
 
+    ask_downloads = False
+
+    skip_downloads = False
+
+    one_download_libs = False
+
     try:
         with open('configuration.json', encoding='utf-8') as f:
             config = json.load(f)
@@ -124,7 +154,7 @@ class Data:
         print(e)
 
     @classmethod
-    def get_name_plugins() -> list[str]:
+    def get_name_plugins(cls) -> list[str]:
         """
         Возвращает список плагинов.
         """
@@ -168,6 +198,11 @@ class Data:
                 return copy.deepcopy(Data.config[plugin_name])
         else:
             return copy.deepcopy(Data.config)
+    
+    @classmethod
+    def __save_config__(cls):
+        with open('configuration.json', 'w', encoding='utf-8') as f:
+            json.dump(Data.config, f, ensure_ascii=False)
 
 class chatType:
     DEFAULT = "default"
@@ -296,9 +331,7 @@ def set_modules(modules: list) -> None:
             except IndexError:
                 pass
 
-    for module in alive_it(modules, title='Установка доп. модулей', spinner=styles.SPINNERS['pulse'], theme='smooth'):
-        if importlib.util.find_spec(module) is None:
-            subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    download_library(modules)
 
     Data.modules.extend(modules)
 
@@ -371,3 +404,29 @@ def __find_conflict__(_filters: filters) -> bool:
         return __find_conflict__(_filters.__dict__['base'])
     else:
         return False
+
+def download_library(libs: list[str]) -> None:
+    dwnld_all: bool = Data.ask_downloads
+
+    if Data.skip_downloads:
+        return
+    
+    _libs = []
+
+    if not dwnld_all:
+        for _lib in libs:
+            user_input = input(f"Устанавливать библиотеку {_lib} ([A]ll, [Y]es, [N]o): ")
+
+            match user_input.lower():
+                case 'a':
+                    _libs.extend(libs)
+                    break
+                case 'y':
+                    _libs.append(_lib)
+                case _:
+                    continue
+    else:
+        _libs.extend(libs)
+
+    for _library in alive_it(_libs, title='Установка доп. модулей', spinner=styles.SPINNERS['pulse'], theme='smooth'):
+        subprocess.run([sys.executable, '-m', 'pip', 'install', '--upgrade', _library], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

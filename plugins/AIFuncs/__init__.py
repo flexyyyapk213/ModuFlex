@@ -1,15 +1,39 @@
 from g4f.client import AsyncClient
 from g4f.Provider import RetryProvider, __providers__, OIVSCodeSer2, PollinationsAI, ApiAirforce
+from g4f.models import (
+    Blackbox,
+    Chatai,
+    Cloudflare,
+    Copilot,
+    DeepInfra,
+    HuggingSpace,
+    Grok,
+    DeepseekAI_JanusPro7b,
+    Kimi,
+    LambdaChat,
+    Mintlify,
+    OIVSCodeSer0501,
+    OIVSCodeSer2,
+    OperaAria,
+    Startnest,
+    OpenAIFM,
+    PerplexityLabs,
+    PollinationsAI,
+    TeachAnything,
+    Together,
+    WeWordle,
+    Yqcloud,
+)
 from g4f.models import _all_models
 import json
-from loads import func, MainDescription, Description, FuncDescription, Data
+from loads import all_func, func, MainDescription, Description, FuncDescription, Data
 from pyrogram import filters, types, enums
 from pyrogram.client import Client
 from colorama import init, Fore
 import base64
 import io
 import time
-from typing import Union
+from typing import Any, Union
 import g4f.debug
 import traceback
 
@@ -23,19 +47,21 @@ __description__ = Description(
     FuncDescription('imgmodel', 'Меняет модель для изображения.Если не вводить параметр, то в консоль выведет список ИИ.', prefixes=['.', '!', '/'], parameters=['модель']),
     FuncDescription('correct', 'Делает предложения корректным и грамотным.', prefixes=['.', '!', '/'], parameters=['предложения']),
     FuncDescription('vimg', 'ИИ смотрит на изображение, благодаря этому он может знать, что на фото.(Отправляйте фото и в описании/подпись пишите команду)', prefixes=['.', '!', '/'], parameters=['промпт']),
-    FuncDescription('turn_websrch', 'Включения/выключения технологии web search для ИИ(Может не работать).', prefixes=['.', '!', '/'])
+    FuncDescription('turn_websrch', 'Включения/выключения технологии web search для ИИ(Может не работать).', prefixes=['.', '!', '/']),
+    FuncDescription('aihtry', 'ИИ читает историю чата.', prefixes=['.', '!', '/'], parameters=[r'\-\-c={число} и/или текст']),
+    FuncDescription('style', 'Изменяет стиль общения ИИ.По умолчанию он обычный, если нечего не указывать, стиль изменится на по умолчанию.', prefixes=['.', '!', '/'], parameters=['не обязательно(стиль)']),
+    FuncDescription('aifk', 'Улучшенная версия afk, где ИИ заменяет вас, пока вы куда то отошли.', prefixes=['.', '!', '/'])
 )
 
 init(True)
 
-config = {"text_model": "gpt-4o-mini", "image_model": "gemini-2.5-flash", "history": [], "history_len": 20, "warnings": True, "web_search": False}
+config = {"text_model": "gpt-4o-mini", "image_model": "gemini-2.5-flash", "history": [], "history_len": 20, "warnings": True, "web_search": False, "style": "обычный", "afk": False}
 
-if Data.get_config('AIFuncs') is None:
-    Data.get_config('AIFuncs').update(config)
+Data.get_config('AIFuncs').setdefault(config)
 
 config = Data.get_config('AIFuncs')
 
-best_model = Fore.YELLOW + '👑Надёжные модели👑' + Fore.RESET + '\n' + Fore.RED + '[ ДЛЯ ТЕКСТА ]' + Fore.RESET + '\n' + '\n'.join(['gpt-4', 'gpt-4o', 'gpt-4o-mini', 'o1', 'o1-mini', 'o3-mini', 'o3-mini-high', 'o4-mini', 'o4-mini-high', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4.5', 'llama-2-70b', 'llama-3-8b', 'llama-3-70b', 'llama-3.1-8b', 'llama-3.1-70b', 'llama-3.1-405b', 'llama-3.2-3b', 'llama-3.2-11b', 'llama-3.2-90b', 'llama-3.3-70b', 'gemini-2.0', 'gemini-2.0-flash', 'gemini-2.0-flash-thinking', 'gemini-2.5-flash', 'gemini-2.5-pro', 'codegemma-7b', 'gemma-2b', 'gemma-1.1-7b', 'gemma-2-9b', 'gemma-2-27b', 'gemma-3-4b', 'gemma-3-12b', 'gemma-3-27b', 'gemma-3n-e4b', 'qwen-2-72b', 'qwen-2-vl-7b', 'qwen-2-vl-72b', 'qwen-2.5', 'qwen-2.5-7b', 'qwen-2.5-72b', 'qwen-2.5-coder-32b', 'qwen-2.5-1m', 'qwen-2.5-max', 'qwen-2.5-vl-72b', 'qwen-3-235b', 'qwen-3-32b', 'qwen-3-30b', 'qwen-3-14b', 'qwen-3-4b', 'qwen-3-1.7b', 'qwen-3-0.6b', 'qwq-32b', 'deepseek-v3', 'deepseek-r1', 'deepseek-r1-turbo', 'deepseek-r1-distill-llama-70b', 'deepseek-v3', 'deepseek-r1', 'deepseek-r1-turbo', 'grok-2', 'grok-3', 'grok-3-r1']) + '\n\n' + Fore.RED + '[ ДЛЯ ИЗОБРАЖЕНИЙ ]' + Fore.RESET + '\n' + '\n'.join(['gpt-4', 'gpt-4.1-mini', 'dall-e-3', 'gpt-image', 'sdxl-turbo', 'sd-3.5-large', 'flux', 'flux-pro', 'flux-dev', 'flux-schnell', 'flux-redux', 'flux-depth', 'flux-canny', 'flux-kontext', 'flux-dev-lora', 'gemini-2.0-flash', 'gemini-2.0-flash-thinking', 'gemini-2.5-flash', 'gemini-2.5-pro'])
+best_model = Fore.YELLOW + '👑Надёжные модели👑' + Fore.RESET + '\n' + Fore.RED + '[ ДЛЯ ТЕКСТА ]' + Fore.RESET + '\n' + '\n'.join(['gpt-4', 'gpt-4o', 'gpt-4o-mini', 'o1', 'o1-mini', 'o3-mini', 'o3-mini-high', 'o4-mini', 'o4-mini-high', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4.5', 'llama-2-70b', 'llama-3-8b', 'llama-3-70b', 'llama-3.1-8b', 'llama-3.1-70b', 'llama-3.1-405b', 'llama-3.2-3b', 'llama-3.2-11b', 'llama-3.2-90b', 'llama-3.3-70b', 'gemini-2.0', 'gemini-2.0-flash', 'gemini-2.0-flash-thinking', 'gemini-2.5-flash', 'gemini-2.5-pro', 'codegemma-7b', 'gemma-2b', 'gemma-1.1-7b', 'gemma-2-9b', 'gemma-2-27b', 'gemma-3-4b', 'gemma-3-12b', 'gemma-3-27b', 'gemma-3n-e4b', 'qwen-2-72b', 'qwen-2-vl-7b', 'qwen-2-vl-72b', 'qwen-2.5', 'qwen-2.5-7b', 'qwen-2.5-72b', 'qwen-2.5-coder-32b', 'qwen-2.5-1m', 'qwen-2.5-max', 'qwen-2.5-vl-72b', 'qwen-3-235b', 'qwen-3-32b', 'qwen-3-30b', 'qwen-3-14b', 'qwen-3-4b', 'qwen-3-1.7b', 'qwen-3-0.6b', 'qwq-32b', 'deepseek-v3', 'deepseek-r1', 'deepseek-r1-turbo', 'deepseek-r1-distill-llama-70b', 'deepseek-v3', 'deepseek-r1', 'deepseek-r1-turbo', 'grok-2', 'grok-3', 'grok-3-r1']) + '\n\n' + Fore.RED + '[ ДЛЯ ИЗОБРАЖЕНИЙ ]' + Fore.RESET + '\n' + '\n'.join(['dall-e-3', 'gpt-image', 'sdxl-turbo', 'sd-3.5-large', 'flux', 'flux-pro', 'flux-dev', 'flux-schnell', 'flux-redux', 'flux-depth', 'flux-canny', 'flux-kontext', 'flux-dev-lora', 'gemini-2.0-flash', 'gemini-2.0-flash-thinking', 'gemini-2.5-flash', 'gemini-2.5-pro'])
 
 def initialization(_):
     if config['history_len'] >= 50 and config['warnings']:
@@ -43,10 +69,15 @@ def initialization(_):
 
 class Conservation:
     def __init__(self):
-        self.client = AsyncClient(provider=RetryProvider(__providers__))
+        self.client = AsyncClient(provider=RetryProvider([
+            Blackbox, Chatai, Cloudflare, Copilot, DeepInfra, HuggingSpace, Grok, 
+            DeepseekAI_JanusPro7b, Kimi, LambdaChat, Mintlify, OIVSCodeSer2, 
+            OIVSCodeSer0501, OperaAria, Startnest, OpenAIFM, PerplexityLabs, 
+            PollinationsAI, TeachAnything, Together, WeWordle, Yqcloud
+        ]))
         self.history = [{
             "role": "system",
-            "content": "Ты обычный assistant в телеграмме, ты общаешься с user.Если требуется, используй форматирование: ```lang_programming\ntext\n```, **text**, ~~text~~, __text__, `text_to_copy`"
+            "content": "Ты обычный assistant в телеграмме, ты общаешься с user.Если требуется, используй форматирование: ```lang_programming\ntext\n```, **text**, ~~text~~, __text__, `text_to_copy`.Общайся в стиле(если обычный, игнорируй это): " + config['style']
         }] + config['history']
 
     def add_message(self, role, content) -> None:
@@ -69,7 +100,7 @@ class Conservation:
     async def get_response(self, user_message, web_search: bool=False, history: bool=True, image: bytes=None) -> Union[str, None]:
         if history: self.add_message("user", user_message)
 
-        messages = self.history if history else {"role": "user", "content": user_message}
+        messages: list[dict[str, Any]] = self.history + [{"role": "user", "content": user_message}] if history else [{"role": "user", "content": user_message}]
 
         providers = RetryProvider([OIVSCodeSer2, PollinationsAI, ApiAirforce]) if image != None else None
         
@@ -233,3 +264,72 @@ async def turn_web_search(app: Client, message: types.Message):
 
         await message.edit_text('Web search включен.')
 
+@func(filters.command('aihtry', prefixes=['.', '!', '/']) & filters.me)
+async def read_chat_history(app: Client, message: types.Message):
+    count = 20
+    prompt = ''
+
+    if len(message.text.split()) >= 3 and message.text.split()[1].startswith('--c='):
+        count = int(message.text.split()[1].replace('--c=', '')) if message.text.split()[1].replace('--c=', '').isdigit() else 20
+        print(count)
+        prompt = ' '.join(message.text.split(' ')[2:])
+    else:
+        prompt = ' '.join(message.text.split(' ')[1:])
+    
+    history = []
+
+    await message.edit_text('__ИИ читает сообщения...__')
+    
+    async for messages in app.get_chat_history(message.chat.id, count):
+        if messages.text is not None:
+            if messages.text == '__ИИ читает сообщения...__':
+                continue
+
+            history.append({"role": "user", "content": f"{messages.from_user.first_name}: {messages.text}"})
+    
+    await message.edit_text('__ИИ генерирует сообщение...__')
+    
+    ai_text = await _ai.response_with_prompt([_ai.history[0], {"role": "system", "content": "Это история чата пользователей, их имена помечены как: {имя}: {текст}, а сообщение пользователя никак не помечено"}, *history, {"role": "user", "content": f"{prompt}"}])
+
+    await message.edit_text(ai_text, parse_mode=enums.ParseMode.MARKDOWN)
+
+@func(filters.command('aifk', prefixes=['.', '!', '/']) & filters.me)
+async def ai_afk(app: Client, message: types.Message):
+    global config
+
+    if Data.get_config('AIFuncs')['afk']:
+        Data.get_config('AIFuncs')['afk'] = False
+
+        await message.edit_text('AI afk выключен.')
+    else:
+        Data.get_config('AIFuncs')['afk'] = True
+
+        await message.edit_text('AI afk включен.')
+
+@all_func()
+async def ai_afk_privat(app: Client, message: types.Message):
+    if Data.get_config('AIFuncs')['afk'] and message.chat.type == enums.ChatType.PRIVATE:
+        msg = await app.send_message(message.from_user.id, '__Пользователь не на месте, ИИ генерирует вам сообщение...__')
+
+        ai_text = await _ai.response_with_prompt([{"role": "system", "content": "Ты заменяешь владельца в телеграме, владелец не в онлайне.Если требуется, используй форматирование: ```lang_programming\ntext\n```, **text**, ~~text~~, __text__, `text_to_copy`"}, {"role": "user", "content": message.text}])
+
+        try:
+            await msg.edit_text(ai_text)
+        except:
+            await app.send_message(message.from_user.id, ai_text, parse_mode=enums.ParseMode.MARKDOWN)
+
+@func(filters.command('style', prefixes=['.', '!', '/']))
+async def change_style(app: Client, message: types.Message):
+    global config
+    if len(message.text.split()) == 1:
+        config['style'] = 'обычный'
+
+        return await message.edit_text('Стиль общения изменён на `обычный`.', parse_mode=enums.ParseMode.MARKDOWN)
+    
+    style = ' '.join(message.text.split()[1:])
+
+    print(config['style'])
+
+    config['style'] = style
+
+    await message.edit_text(f'Стиль общения изменён на: `{style}`', parse_mode=enums.ParseMode.MARKDOWN)
