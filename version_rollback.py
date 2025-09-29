@@ -39,7 +39,7 @@ with zipfile.ZipFile(f'temp/v{version.replace(".", "-")}.zip', 'r') as zip_ref:
 dir_name = os.listdir('temp')
 
 for file_name in dir_name:
-    if os.isdir('temp/'+file_name):
+    if os.is_dir('temp/'+file_name):
         dir_name = file_name
         break
 
@@ -65,6 +65,6 @@ for file_name in alive_it(os.listdir('temp/'+dir_name), title='Перенос ф
     shutil.move(f'temp/{dir_name}/{file_name}', f'{os.path.split(__file__)[0]}')
 
 os.remove(f'temp/v{version.replace(".", "-")}.zip')
-os.rmdir(f'temp/{dir_name}')
+shutil.rmtree(f'temp/{dir_name}')
 
 print(f'Версия v{version} была успешно установлена.')
