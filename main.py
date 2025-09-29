@@ -25,6 +25,8 @@ from datetime import datetime
 import json
 from pathlib import Path
 
+import sys
+
 from pyrogram import Client, filters, enums
 from pyrogram.handlers import MessageHandler
 from pyrogram import types
@@ -387,7 +389,10 @@ async def update_script(_, msg: types.Message):
 
         botvenv_has_been_changed = False
         
-        botvenv_python_version = subprocess.run([f'temp/{file_name}/botvenv/Scripts/python.exe', '-V'], stdout=subprocess.PIPE)
+        if sys.platform == 'win32':
+            botvenv_python_version = subprocess.run([f'temp/{file_name}/botvenv/Scripts/python.exe', '-V'], stdout=subprocess.PIPE)
+        else:
+            botvenv_python_version = subprocess.run([f'temp/{file_name}/botvenv/bin/python', '-V'], stdout=subprocess.PIPE)
 
         if botvenv_python_version.stdout.decode('utf-8').split(maxsplit=1)[1] != python_version():
             botvenv_has_been_changed = True
@@ -430,10 +435,23 @@ async def update_script(_, msg: types.Message):
 
         stop = ScriptState.restart
     else:
+        for fil_name in os.listdir('temp'):
+            try:
+                if os.path.isdir('temp/'+fil_name):
+                    shutil.rmtree('temp/'+fil_name)
+                    continue
+
+                os.remove('temp/'+fil_name)
+            except OSError:
+                pass
+            
+            except Exception as e:
+                print(e)
+
         await msg.edit('Обновление не найдено')
 
 async def send_version(_, msg: types.Message):
-    await app.send_message(msg.chat.id, f'Обновление: {"Есть" if there_is_update else "Нету"}\nТекущая версия: {this_version}')
+    await msg.edit_text(f'Обновление: {"Есть" if there_is_update else "Нету"}\nТекущая версия: `{this_version}`', parse_mode=ParseMode.MARKDOWN)
 
 async def all_messages(app: Client, message: types.Message):
     asyncio.gather(send_update_function(app, message))
