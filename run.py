@@ -98,9 +98,6 @@ while retries < max_retries:
 
         if result == ScriptState.exit:
             sys.exit()
-        elif result != ScriptState.error:
-            subprocess.run([sys.executable] + sys.argv)
-            sys.exit()
     except KeyboardInterrupt:
         print('<3')
         break
@@ -110,8 +107,8 @@ while retries < max_retries:
         sleep(retry_delay)
         continue
     except OperationalError as e:
-        sleep(5)
         print(e, '.Возможно скрипт работает где то ещё.')
+        sleep(5)
     except Exception as e:
         print(e)
 

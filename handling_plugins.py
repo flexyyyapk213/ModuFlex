@@ -3,18 +3,15 @@ from loads import Data, Description, download_library
 import inspect
 import traceback
 import logging
-import subprocess
-import sys
-from alive_progress import alive_it, styles
-import importlib.util
 
 logging.basicConfig(filename='script.log', level=logging.WARN)
 
 def handling_plugins():
-    try:
-        folders = os.listdir('plugins')
+    folders = os.listdir('plugins')
 
-        for folder in folders:
+    for folder in folders:
+        try:
+            # То есть, папка с именем: Plugin name не будет считаться как плагин
             if ' ' in folder:
                 continue
             
@@ -27,6 +24,7 @@ def handling_plugins():
                     }
                                 })
 
+                print(os.path.exists(os.path.join('plugins', folder, '__modules__.txt')))
                 if os.path.exists(os.path.join('plugins', folder, '__modules__.txt')):
                     if not Data.config['ModuFlex'].get('libs_is_dwnld', False) or Data.config['ModuFlex'].get('libs_is_dwnld', False) and not Data.one_download_libs:
                         with open(os.path.join('plugins', folder, '__modules__.txt')) as modules:
@@ -47,9 +45,9 @@ def handling_plugins():
                         continue
                     
                     Data.initializations.append(dict(md.__dict__.items())[folder].initialization)
-    except Exception as e:
-        traceback.print_exc()
-        logging.warning(traceback.format_exc())
+        except Exception as e:
+            traceback.print_exc()
+            logging.warning(traceback.format_exc())
 
 def handle_plugin(pack_name: str):
     try:
@@ -63,7 +61,7 @@ def handle_plugin(pack_name: str):
         if os.path.exists(os.path.join('plugins', pack_name, '__modules__.txt')):
             with open(os.path.join('plugins', pack_name, '__modules__.txt')) as modules:
                 download_library(modules.readlines())        
-        md = __import__('pluging.' + pack_name + '.__init__.py')
+        md = __import__('plugins.' + pack_name + '.__init__.py')
 
         if hasattr(dict(md.__dict__.items())[pack_name], '__description__'):
             if not isinstance(dict(md.__dict__.items())[pack_name].__description__, Description):
@@ -80,4 +78,4 @@ def handle_plugin(pack_name: str):
             Data.initializations.append(dict(md.__dict__.items())[pack_name].initialization)
     except Exception as e:
         traceback.print_exc()
-        logging.warn(traceback.format_exc())
+        logging.warning(traceback.format_exc())

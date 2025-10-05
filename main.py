@@ -26,6 +26,7 @@ import json
 from pathlib import Path
 
 import sys
+import copy
 
 from pyrogram import Client, filters, enums
 from pyrogram.handlers import MessageHandler
@@ -174,7 +175,11 @@ async def help(_, msg: types.Message):
     if len(msg.text.split()) == 1:
         help_text = 'Список плагинов:\n0) <code>ModuFlex</code>&lt;MAIN&gt;\n'
 
-        for indx, plugin in enumerate(Data.description):
+        plgs_desc = copy.deepcopy(Data.description)
+
+        plgs_desc.pop('ModuFlex')
+
+        for indx, plugin in enumerate(plgs_desc):
             if plugin == 'ModuFlex':
                 continue
 
