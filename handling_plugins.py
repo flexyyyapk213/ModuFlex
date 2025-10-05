@@ -24,7 +24,6 @@ def handling_plugins():
                     }
                                 })
 
-                print(os.path.exists(os.path.join('plugins', folder, '__modules__.txt')))
                 if os.path.exists(os.path.join('plugins', folder, '__modules__.txt')):
                     if not Data.config['ModuFlex'].get('libs_is_dwnld', False) or Data.config['ModuFlex'].get('libs_is_dwnld', False) and not Data.one_download_libs:
                         with open(os.path.join('plugins', folder, '__modules__.txt')) as modules:
@@ -79,3 +78,4 @@ def handle_plugin(pack_name: str):
     except Exception as e:
         traceback.print_exc()
         logging.warning(traceback.format_exc())
+
