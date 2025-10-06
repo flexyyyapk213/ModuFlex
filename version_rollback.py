@@ -39,7 +39,7 @@ with zipfile.ZipFile(f'temp/v{version.replace(".", "-")}.zip', 'r') as zip_ref:
 dir_name = os.listdir('temp')
 
 for file_name in dir_name:
-    if os.path.is_dir('temp/'+file_name):
+    if os.path.isdir('temp/'+file_name):
         dir_name = file_name
         break
 
