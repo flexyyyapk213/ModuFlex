@@ -214,7 +214,7 @@ class chatType:
 def func(_filters: filters) -> Callable:
     """
     Декоратор для обработки сообщений.
-    :param _filters: фильтры pyrogram`a
+    :param _filters: фильтры pyrogram
     :return: Callable
     """
     def reg(_func: Callable) -> None:
@@ -222,7 +222,10 @@ def func(_filters: filters) -> Callable:
             raise ValueError('Is not a function')
 
         if __find_conflict__(_filters):
-            raise ValueError('Filters has a conflict filter')
+            try:
+                raise ValueError('Filters has a conflict filter')
+            except ValueError:
+                logging.warning(traceback.format_exc())
         
         frame = inspect.currentframe()
         caller_frame = frame.f_back

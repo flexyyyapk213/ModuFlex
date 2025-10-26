@@ -60,7 +60,9 @@ def handle_plugin(pack_name: str):
         if os.path.exists(os.path.join('plugins', pack_name, '__modules__.txt')):
             with open(os.path.join('plugins', pack_name, '__modules__.txt')) as modules:
                 download_library(modules.readlines())        
-        md = __import__('plugins.' + pack_name + '.__init__.py')
+        
+        print(pack_name)
+        md = __import__('plugins.' + pack_name + '.__init__')
 
         if hasattr(dict(md.__dict__.items())[pack_name], '__description__'):
             if not isinstance(dict(md.__dict__.items())[pack_name].__description__, Description):
@@ -78,4 +80,3 @@ def handle_plugin(pack_name: str):
     except Exception as e:
         traceback.print_exc()
         logging.warning(traceback.format_exc())
-

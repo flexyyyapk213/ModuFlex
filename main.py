@@ -313,14 +313,15 @@ async def download_module(_, msg: types.Message):
     
     file_name = os.listdir('plugins/temp')[0]
 
-    for fl_name in os.listdir(f'plugins/temp/{file_name}'):
-        shutil.move(f'plugins/temp/{file_name}/{fl_name}', f'plugins/{fl_name}')
+    main_dir = os.listdir(f'plugins/temp/{file_name}')[0]
+    
+    shutil.move(f'plugins/temp/{file_name}/{main_dir}', f'plugins/{main_dir}')
 
     shutil.rmtree('plugins/temp')
 
-    os.remove(f'plugins/{file_name}.zip')
+    os.remove(f'plugins/main.zip')
 
-    handle_plugin(file_name)
+    handle_plugin(main_dir)
 
     await app.edit_message_text(msg.chat.id, msg.id, 'Плагин успешно установлен')
 
