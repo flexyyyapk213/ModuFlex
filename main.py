@@ -17,14 +17,11 @@ import asyncio
 import logging
 import random
 
-from typing import Type
 import time
 import traceback
-
 from datetime import datetime
-import json
-from pathlib import Path
 
+from pathlib import Path
 import sys
 import copy
 
@@ -45,6 +42,8 @@ from packaging import version as __version
 from loads import Data, ScriptState
 from handling_plugins import handling_plugins as handling_plg, handle_plugin
 from __init__ import __version__ as this_version
+
+from utils import merge_directories
 
 logging.basicConfig(filename='script.log', level=logging.WARN)
 
@@ -128,7 +127,7 @@ def check_updates():
                 for frame in effect:
                     terminal.print(frame)
         else:
-            there_is_update = True
+            there_is_update = version
     elif _version < __version__:
         features_of_the_version.append('you_are_tester')
     
@@ -315,7 +314,7 @@ async def download_module(_, msg: types.Message):
 
     main_dir = os.listdir(f'plugins/temp/{file_name}')[0]
     
-    shutil.move(f'plugins/temp/{file_name}/{main_dir}', f'plugins/{main_dir}')
+    merge_directories(f'plugins/temp/{file_name}/{main_dir}', f'plugins/{main_dir}')
 
     shutil.rmtree('plugins/temp')
 
@@ -323,7 +322,7 @@ async def download_module(_, msg: types.Message):
 
     handle_plugin(main_dir)
 
-    await app.edit_message_text(msg.chat.id, msg.id, 'Плагин успешно установлен')
+    await app.edit_message_text(msg.chat.id, msg.id, 'Плагин успешно установлен/обновлён')
 
 async def remove_plugin(_, msg: types.Message):
     global stop
@@ -456,8 +455,27 @@ async def update_script(_, msg: types.Message):
 
         await msg.edit('Обновление не найдено')
 
-async def send_version(_, msg: types.Message):
-    await msg.edit_text(f'Обновление: {"Есть" if there_is_update else "Нету"}\nТекущая версия: `{this_version}`', parse_mode=ParseMode.MARKDOWN)
+async def modu_flex_state(_, msg: types.Message):
+    global send_message
+    
+    # В 0.1.0 будет возможность смотреть кол-во ошибок, которые вылезли в плагинах
+    await msg.edit_text(f"""```
+ ____    ____  ________  
+|_   \  /   _||_   __  |
+  |   \/   |    | |_ \_|
+  | |\  /| |    |  _|
+ _| |_\/_| |_  _| |_
+|_____||_____||_____|
+```
+Текущая версия: {this_version}
+Обновление: {there_is_update if there_is_update else 'Нету'}
+Количество плагинов: {len(Data.cache)}/{len(Data.cache) + Data.failed_modules}
+
+**Параметры**:
+    О старте отправлять: {'В избранное' if send_msg_onstart_up else 'В консоль'}
+    Установка библиотек: {'Не спрашивать' if Data.ask_downloads else 'Спрашивать'}
+    Обновлять библиотеки: {'При установке' if Data.one_download_libs else 'При запуске'}
+    """)
 
 async def all_messages(app: Client, message: types.Message):
     asyncio.gather(send_update_function(app, message))
@@ -501,7 +519,7 @@ async def main(_app: Client, retries: int=None) -> int:
     app.add_handler(MessageHandler(download_module, filters.command('dwlmd', ['.', '/', '!']) & filters.me))
     app.add_handler(MessageHandler(remove_plugin, filters.command('rmmd', ['.', '/', '!']) & filters.me))
     app.add_handler(MessageHandler(update_script, filters.command('update', ['.', '/', '!']) & filters.me))
-    app.add_handler(MessageHandler(send_version, filters.command('version', ['.', '/', '!']) & filters.me))
+    app.add_handler(MessageHandler(modu_flex_state, filters.command('moduflex', ['.', '/', '!']) & filters.me))
     app.add_handler(MessageHandler(_stop, filters.command('stop', ['.', '/', '!']) & filters.me))
     app.add_handler(MessageHandler(_restart, filters.command('restart', ['.', '/', '!']) & filters.me))
     
@@ -610,6 +628,8 @@ async def main(_app: Client, retries: int=None) -> int:
     start = time.time()
 
     if retries != None: retries -= 1
+
+    stop = ScriptState.started
 
     while stop == ScriptState.started:
         await asyncio.sleep(1)

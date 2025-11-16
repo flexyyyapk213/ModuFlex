@@ -1,13 +1,22 @@
 import importlib.util
-import subprocess
 import sys
 from pathlib import Path
+import re
 import os
+import subprocess
 
 venv_path = Path(sys.executable)
 
+with open('config.ini') as f:
+    text = f.read()
+
+    use_botvenv = re.search(r'use_botvenv\s*=\s*(true|false)', text)
+
+    if use_botvenv is not None: use_botvenv = {"true": True, "false": False}[use_botvenv.group(1)]
+    else: use_botvenv = True
+
 # Run with botvenv
-if list(venv_path.parts)[-3] != 'botvenv':
+if list(venv_path.parts)[-3] != 'botvenv' and use_botvenv:
     path_to_bot = Path(__file__)
 
     folders = [entry.name for entry in os.scandir(path_to_bot.parents[0]) if entry.is_dir()]
@@ -51,7 +60,6 @@ for module in alive_it(__modules__, title='Проверка модулей', spi
 
 import asyncio
 from time import sleep
-import subprocess
 from pyrogram.client import Client
 from sqlite3 import OperationalError
 from main import main, api_id, api_hash, phone_number, password
@@ -98,6 +106,9 @@ while retries < max_retries:
 
         if result == ScriptState.exit:
             sys.exit()
+        elif result == ScriptState.restart:
+            subprocess.run([sys.executable, *sys.argv])
+            sys.exit()
     except KeyboardInterrupt:
         print('<3')
         break
@@ -109,7 +120,9 @@ while retries < max_retries:
     except OperationalError as e:
         print(e, '.Возможно скрипт работает где то ещё.')
         sleep(5)
+        continue
     except Exception as e:
         print(e)
+        continue
 
     retries += 1

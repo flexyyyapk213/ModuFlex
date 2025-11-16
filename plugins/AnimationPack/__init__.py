@@ -1,6 +1,7 @@
+from pyrogram.client import Client
 from loads import func, Description, MainDescription, FuncDescription
 from pyrogram import filters, types
-from random import choices
+from random import choices, randint
 from pyrogram.errors import FloodWait
 import asyncio
 
@@ -82,3 +83,68 @@ async def spin_box(msg: types.Message, spin_count: int=10):
         await msg.edit(anim+f'⬜⬜⬜⬜⬜🔼⬜⬜⬜⬜⬜⬜\n{frsname} выпало: {emoji_rare[list_emojis[27]]}')
     else:
         await msg.edit(anim+f'⬜⬜⬜⬜⬜🔼⬜⬜⬜⬜⬜⬜\n{msg.from_user.first_name} выпало: {emoji_rare[list_emojis[27]]}')
+
+@func(filters.command('p', ['!', '/', '.']) & filters.me)
+async def riven_potuzhnosti(app: Client, message: types.Message):
+    level = "Вимірюється..."
+    level_text = "Очікування..."
+    MAX_LEVEL = 47
+    level_bar = '...............................................'
+
+    level_name = {
+        "Рівень потужності дойшов до спокійного рівня": 6,
+        "Рівень потужності дойшов до коливального рівня": 12,
+        "❗️Рівень потужності дойшов до тривожного рівня": 18,
+        "‼️Рівень потужності дойшов до серйозного рівня": 24,
+        "‼️❗️Рівень потужності дойшов до ВИСОКОГО рівня": 28,
+        "‼️‼️Рівень потужності дойшов до НЕЙМОВІРНО ВИСОКОГО рівня": 36,
+        "⚠️⚠️‼️‼️РІЕНЬ ПОТУЖНОСТІ ДОЙШОВ ДО ПОЛУСМЕРТНОГО РІВНЯ": 42,
+        "📢⚠️⚠️‼️‼️РІВЕНЬ ПОТУЖНОСТІ ДОЙШОВ ДО СМЕРТЕЛЬНОГО РІВНЯ": 47
+    }
+
+    text = f"""Рівень потужності: {level}
+🟦🟩🟨🟧🟥🟪⬛️💀
+{level_bar}
+{level_text}
+"""
+
+    await message.edit_text(text)
+
+    await asyncio.sleep(2)
+
+    level = 0
+
+    for i in range(randint(5, 15)):
+        add_level = randint(-2, 8)
+        level += add_level
+        level = max(0, min(level, MAX_LEVEL))
+
+        level_bar = '.' * (level - 1) + '🔺' + '.' * (MAX_LEVEL - level)
+
+        text = f"""Рівень потужності: {level}
+🟦🟩🟨🟧🟥🟪⬛️💀
+{level_bar}
+{level_text}
+"""
+
+        try:
+            await message.edit_text(text)
+        except Exception as e:
+            pass
+
+        await asyncio.sleep(1)
+    
+    for key, value in level_name.items():
+        if level <= value:
+            level_text = key
+            break
+    
+    text = f"""Рівень потужності: {level}
+🟦🟩🟨🟧🟥🟪⬛️💀
+{level_bar}
+{level_text}
+"""
+    try:
+        await message.edit_text(text)
+    except Exception as e:
+        pass

@@ -1,17 +1,17 @@
-from types import MappingProxyType
-from typing import Any, Type, Callable, Union, Optional, List, Type, Mapping
+from typing import Callable, Union, Optional
 import inspect
 from pyrogram import filters
 import os
 import importlib.util
-import subprocess
 import logging
 import traceback
-import sys
-from alive_progress import alive_it, styles
 import json
 import copy
-from enum import IntEnum
+from enum import IntEnum, StrEnum
+from utils import __find_command__, __find_conflict__
+from alive_progress import alive_it, styles
+import subprocess
+import sys
 
 logging.basicConfig(filename='script.log', level=logging.WARN)
 
@@ -28,13 +28,6 @@ __all__ = [
     'Description',
     'handleMethods',
     'download_library'
-]
-
-CONFLICTS = [
-    filters.all,
-    filters.private,
-    filters.channel,
-    filters.group
 ]
 
 class ScriptState(IntEnum):
@@ -141,7 +134,9 @@ class Data:
 
     skip_downloads = False
 
-    one_download_libs = False
+    one_download_libs = True
+
+    failed_modules: int = 0
 
     try:
         with open('configuration.json', encoding='utf-8') as f:
@@ -161,7 +156,7 @@ class Data:
         return list(Data.description.keys())
     
     @classmethod
-    def get_config(cls, plugin_name: Optional[str]=None) -> Union[MappingConfig, None]:
+    def get_config(cls, plugin_name: Optional[str]=None) -> Union[MappingConfig, dict]:
         """
         Возвращает словарь настроек.
         Если оставить `plugin_name` None, вернёт конфиги плагинов.
@@ -172,8 +167,7 @@ class Data:
         Returns:
             Union[
             Mapping[str, Any] - словарь нельзя изменить,
-            dict - словарь можно изменить,
-            None - конфиг пуст, но он сразу же создался
+            dict - это не ваш конфиг, но он доступен в качестве просмотра
             ]
         """
         if plugin_name is not None:
@@ -182,8 +176,6 @@ class Data:
 
                 with open('configuration.json', 'w', encoding='utf-8') as f:
                     json.dump(Data.config, f, ensure_ascii=False)
-
-                return None
             
             frame = inspect.currentframe()
             caller_frame = frame.f_back
@@ -204,7 +196,7 @@ class Data:
         with open('configuration.json', 'w', encoding='utf-8') as f:
             json.dump(Data.config, f, ensure_ascii=False)
 
-class chatType:
+class chatType(StrEnum):
     DEFAULT = "default"
     PRIVATE = "private"
     CHAT = "chat"
@@ -373,40 +365,6 @@ class Description:
     def __init__(self, main_description: MainDescription, *args: FuncDescription):
         self.main_description = main_description
         self.args_description = args
-
-def __find_command__(_filters: filters) -> Optional[List[str]]:
-    if type(_filters).__name__ == 'CommandFilter':
-        if isinstance(_filters.prefixes, list): return _filters.prefixes
-        else: return list(_filters.prefixes)
-    
-    if type(_filters.__dict__['other']).__name__ == 'CommandFilter':
-        if isinstance(_filters.__dict__['other'].prefixes, list): return _filters.__dict__['other'].prefixes
-        else: return list(_filters.__dict__['other'].prefixes)
-    elif type(_filters.__dict__['base']).__name__ == 'CommandFilter':
-        if isinstance(_filters.__dict__['base'].prefixes, list): return _filters.__dict__['other'].prefixes
-        else: return list(_filters.__dict__['base'].prefixes)
-    elif type(_filters.__dict__['base']).__name__ in ['AndFilter', 'OrFilter']:
-        return __find_command__(_filters.__dict__['base'])
-    else:
-        return None
-
-def __find_conflict__(_filters: filters) -> bool:
-    if _filters == None:
-        return False
-    
-    if any(_filters == conflict for conflict in CONFLICTS):
-        return True
-    elif not dict(_filters.__dict__).get('base', False):
-        return False
-
-    if any(_filters.__dict__['base'] == conflict for conflict in CONFLICTS):
-        return True
-    elif any(_filters.__dict__['other'] == conflict for conflict in CONFLICTS):
-        return True
-    elif type(_filters.__dict__['base']).__name__ in ['AndFilter', 'OrFilter']:
-        return __find_conflict__(_filters.__dict__['base'])
-    else:
-        return False
 
 def download_library(libs: list[str]) -> None:
     dwnld_all: bool = Data.ask_downloads

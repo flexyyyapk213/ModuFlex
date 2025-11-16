@@ -34,6 +34,7 @@ def handling_plugins():
                 if hasattr(dict(md.__dict__.items())[folder], '__description__'):
                     if not isinstance(dict(md.__dict__.items())[folder].__description__, Description):
                         print(f'\033[41mОшибка в плагине {folder}: Описание не корректное\033[0m')
+                        Data.failed_modules += 1
                         continue
                     
                     Data.description.update({folder: dict(md.__dict__.items())[folder].__description__})
@@ -41,12 +42,14 @@ def handling_plugins():
                 if hasattr(dict(md.__dict__.items())[folder], 'initialization'):
                     if not inspect.isfunction(dict(md.__dict__.items())[folder].initialization):
                         print(f'\033[41mОшибка в плагине {folder}: инициализация не корректная\033[0m')
+                        Data.failed_modules += 1
                         continue
                     
                     Data.initializations.append(dict(md.__dict__.items())[folder].initialization)
         except Exception as e:
             traceback.print_exc()
             logging.warning(traceback.format_exc())
+            Data.failed_modules += 1
 
 def handle_plugin(pack_name: str):
     try:
@@ -61,12 +64,12 @@ def handle_plugin(pack_name: str):
             with open(os.path.join('plugins', pack_name, '__modules__.txt')) as modules:
                 download_library(modules.readlines())        
         
-        print(pack_name)
         md = __import__('plugins.' + pack_name + '.__init__')
 
         if hasattr(dict(md.__dict__.items())[pack_name], '__description__'):
             if not isinstance(dict(md.__dict__.items())[pack_name].__description__, Description):
                 print(f'\033[41mОшибка в плагине {pack_name}: Описание не корректное\033[0m')
+                Data.failed_modules += 1
                 return
             
             Data.description.update({pack_name: dict(md.__dict__.items())[pack_name].__description__})
@@ -74,9 +77,11 @@ def handle_plugin(pack_name: str):
         if hasattr(dict(md.__dict__.items())[pack_name], 'initialization'):
             if not inspect.isfunction(dict(md.__dict__.items())[pack_name].initialization):
                 print(f'\033[41mОшибка в плагине {pack_name}: инициализация не корректная\033[0m')
+                Data.failed_modules += 1
                 return
             
             Data.initializations.append(dict(md.__dict__.items())[pack_name].initialization)
     except Exception as e:
         traceback.print_exc()
         logging.warning(traceback.format_exc())
+        Data.failed_modules += 1

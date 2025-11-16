@@ -81,7 +81,7 @@ async def spam(app: Client, msg: Message):
 @func(filters.command('ispam', prefixes=['.', '!', '/']) & filters.me)
 async def interval_spam(app: Client, msg: Message):
     try:
-        interval = int(msg.text.split()[1])
+        interval = float(msg.text.split()[1])
         count = int(msg.text.split()[2])
         text = ' '.join(msg.text.split()[3:])
     except (ValueError, IndexError):
@@ -91,7 +91,10 @@ async def interval_spam(app: Client, msg: Message):
     
     for _ in range(count):
         try:
-            await app.send_message(msg.chat.id, text)
+            if msg.reply_to_message:
+                await app.send_message(msg.chat.id, text, reply_to_message_id=msg.reply_to_message.id)
+            else:
+                await app.send_message(msg.chat.id, text)
             await asyncio.sleep(interval)
         except FloodWait as e:
             count += 1
