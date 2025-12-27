@@ -59,7 +59,12 @@ if importlib.util.find_spec('alive_progress') is None:
 
 from alive_progress import alive_it, styles
 
-if not Data.config['ModuFlex']['libs_is_dwnld']:
+if 'ModuFlex' in Data.config:
+    if not Data.config['ModuFlex']['libs_is_dwnld']:
+        for module in alive_it(__modules__, title='Проверка модулей', spinner=styles.SPINNERS['pulse'], theme='smooth'):
+            if importlib.util.find_spec(module) is None:
+                subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+else:
     for module in alive_it(__modules__, title='Проверка модулей', spinner=styles.SPINNERS['pulse'], theme='smooth'):
         if importlib.util.find_spec(module) is None:
             subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
