@@ -3,6 +3,9 @@ from loads import Data, Description, download_library
 import inspect
 import traceback
 import logging
+from __init__ import __version__
+from packaging import version
+from packaging.specifiers import SpecifierSet
 
 logging.basicConfig(filename='script.log', level=logging.WARN)
 
@@ -11,7 +14,7 @@ def handling_plugins():
 
     for folder in folders:
         try:
-            # То есть, папка с именем: Plugin name не будет считаться как плагин
+            # То есть, папка с именем: 'Plugin name' не будет считаться как плагин
             if ' ' in folder:
                 continue
             
@@ -37,7 +40,7 @@ def handling_plugins():
                         Data.failed_modules += 1
                         continue
                     
-                    Data.description.update({folder: dict(md.__dict__.items())[folder].__description__})
+                    update_command_information(dict(md.__dict__.items())[folder].__description__, folder)
                 
                 if hasattr(dict(md.__dict__.items())[folder], 'initialization'):
                     if not inspect.isfunction(dict(md.__dict__.items())[folder].initialization):
@@ -46,6 +49,16 @@ def handling_plugins():
                         continue
                     
                     Data.initializations.append(dict(md.__dict__.items())[folder].initialization)
+                
+                if hasattr(dict(md.__dict__.items())[folder], '__ModuFlex_version__'):
+                    if isinstance(dict(md.__dict__.items())[folder].__ModuFlex_version__, str):
+                        spec = SpecifierSet(dict(md.__dict__.items())[folder].__ModuFlex_version__)
+                        current = version.parse(__version__)
+
+                        if not spec.contains(current):
+                            Data.cache.pop(folder)
+                            Data.description.pop(folder)
+                            Data.initializations.pop()
         except Exception as e:
             traceback.print_exc()
             logging.warning(traceback.format_exc())
@@ -81,7 +94,31 @@ def handle_plugin(pack_name: str):
                 return
             
             Data.initializations.append(dict(md.__dict__.items())[pack_name].initialization)
+        
+        if hasattr(dict(md.__dict__.items())[pack_name], '__ModuFlex_version__'):
+            if isinstance(dict(md.__dict__.items())[pack_name].__ModuFlex_version__, str):
+                spec = SpecifierSet(dict(md.__dict__.items())[pack_name].__ModuFlex_version__)
+                current = version.parse(__version__)
+
+                if not spec.contains(current):
+                    Data.cache.pop(pack_name)
+                    Data.description.pop(pack_name)
+                    Data.initializations.pop()
     except Exception as e:
         traceback.print_exc()
         logging.warning(traceback.format_exc())
         Data.failed_modules += 1
+
+def update_command_information(description: Description, plugin_name: str):
+    if plugin_name not in Data.description:
+        Data.description.update({plugin_name: description})
+    
+    Data.description[plugin_name].main_description.description = description.main_description.description
+
+    for command in description.funcs_description.values():
+        if command.command in Data.description[plugin_name].funcs_description:
+            Data.description[plugin_name].funcs_description[command.command].description = command.description
+            Data.description[plugin_name].funcs_description[command.command].hyphen = command.hyphen
+            Data.description[plugin_name].funcs_description[command.command].parameters = command.parameters
+        else:
+            Data.description[plugin_name].funcs_description.update({command.command: command})

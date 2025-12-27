@@ -2,7 +2,6 @@
 Файл для отката версии.
 """
 
-from enum import verify
 import importlib.util
 import subprocess
 import sys

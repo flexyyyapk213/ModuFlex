@@ -4,16 +4,21 @@ from pathlib import Path
 import re
 import os
 import subprocess
+from loads import Data
 
 venv_path = Path(sys.executable)
 
-with open('config.ini') as f:
-    text = f.read()
+try:
+    with open('config.ini') as f:
+        text = f.read()
 
-    use_botvenv = re.search(r'use_botvenv\s*=\s*(true|false)', text)
+        use_botvenv = re.search(r'use_botvenv\s*=\s*(true|false)', text)
 
-    if use_botvenv is not None: use_botvenv = {"true": True, "false": False}[use_botvenv.group(1)]
-    else: use_botvenv = True
+        if use_botvenv is not None: use_botvenv = {"true": True, "false": False}[use_botvenv.group(1)]
+        else: use_botvenv = True
+except FileNotFoundError:
+    print('Файл конфигурации не был обнаружен.Создайте в корне папке файл config.ini и введите свои данные.(Подробнее в contribution.md)')
+    exit()
 
 # Run with botvenv
 if list(venv_path.parts)[-3] != 'botvenv' and use_botvenv:
@@ -54,9 +59,10 @@ if importlib.util.find_spec('alive_progress') is None:
 
 from alive_progress import alive_it, styles
 
-for module in alive_it(__modules__, title='Проверка модулей', spinner=styles.SPINNERS['pulse'], theme='smooth'):
-    if importlib.util.find_spec(module) is None:
-        subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+if not Data.config['ModuFlex']['libs_is_dwnld']:
+    for module in alive_it(__modules__, title='Проверка модулей', spinner=styles.SPINNERS['pulse'], theme='smooth'):
+        if importlib.util.find_spec(module) is None:
+            subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 import asyncio
 from time import sleep
@@ -70,6 +76,9 @@ from loads import ScriptState
 max_retries = 10
 retry_delay = 15
 retries = 0
+
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)

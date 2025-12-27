@@ -1,8 +1,10 @@
 import shutil
 import os
-import subprocess
 from pyrogram import filters
 from typing import Optional, List
+import re
+import requests
+from packaging import version
 
 CONFLICTS = [
     filters.all,
@@ -33,14 +35,33 @@ def __find_command__(_filters: filters) -> Optional[List[str]]:
         if isinstance(_filters.prefixes, list): return _filters.prefixes
         else: return list(_filters.prefixes)
     
+    if _filters == None:
+        return None
+
     if type(_filters.__dict__['other']).__name__ == 'CommandFilter':
         if isinstance(_filters.__dict__['other'].prefixes, list): return _filters.__dict__['other'].prefixes
         else: return list(_filters.__dict__['other'].prefixes)
     elif type(_filters.__dict__['base']).__name__ == 'CommandFilter':
-        if isinstance(_filters.__dict__['base'].prefixes, list): return _filters.__dict__['other'].prefixes
+        if isinstance(_filters.__dict__['base'].prefixes, list): return _filters.__dict__['base'].prefixes
         else: return list(_filters.__dict__['base'].prefixes)
     elif type(_filters.__dict__['base']).__name__ in ['AndFilter', 'OrFilter']:
         return __find_command__(_filters.__dict__['base'])
+    else:
+        return None
+
+def __find_command_name__(_filters: filters) -> Optional[str]:
+    if type(_filters).__name__ == 'CommandFilter':
+        return list(_filters.commands)[0]
+    
+    if _filters == None:
+        return None
+
+    if type(_filters.__dict__['other']).__name__ == 'CommandFilter':
+        return list(_filters.__dict__['other'].commands)[0]
+    elif type(_filters.__dict__['base']).__name__ == 'CommandFilter':
+        return list(_filters.__dict__['base'].commands)[0]
+    elif type(_filters.__dict__['base']).__name__ in ['AndFilter', 'OrFilter']:
+        return __find_command_name__(_filters.__dict__['base'])
     else:
         return None
 
@@ -61,3 +82,10 @@ def __find_conflict__(_filters: filters) -> bool:
         return __find_conflict__(_filters.__dict__['base'])
     else:
         return False
+
+def check_update(version_now: str) -> tuple:
+    link = 'https://raw.githubusercontent.com/flexyyyapk213/ModuFlex/main/__init__.py'
+    fresh_version = version.parse(re.search(r'__version__ = \'(.*?)\'', requests.get(link, headers={'User-Agent': 'Mozilla/5.0'}).text).group(1))
+    _version_now = version.parse(version_now)
+
+    return (fresh_version > _version_now, fresh_version)

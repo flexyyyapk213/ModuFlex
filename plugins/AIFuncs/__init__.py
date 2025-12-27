@@ -33,7 +33,7 @@ from colorama import init, Fore
 import base64
 import io
 import time
-from typing import Any, Union
+from typing import Any, Union, List, Dict
 import g4f.debug
 import traceback
 
@@ -100,7 +100,7 @@ class Conservation:
     async def get_response(self, user_message, web_search: bool=False, history: bool=True, image: bytes=None) -> Union[str, None]:
         if history: self.add_message("user", user_message)
 
-        messages: list[dict[str, Any]] = self.history + [{"role": "user", "content": user_message}] if history else [{"role": "user", "content": user_message}]
+        messages: list[Dict[str, Any]] = self.history + [{"role": "user", "content": user_message}] if history else [{"role": "user", "content": user_message}]
 
         providers = RetryProvider([OIVSCodeSer2, PollinationsAI, ApiAirforce]) if image != None else None
         
@@ -136,7 +136,7 @@ class Conservation:
 
         return img_bytes
     
-    async def response_with_prompt(self, prompt: list[dict], web_search: bool=None) -> Union[str, None]:
+    async def response_with_prompt(self, prompt: List[Dict[str, Any]], web_search: bool=None) -> Union[str, None]:
         response = await self.client.chat.completions.create(
             model=config['text_model'],
             messages=prompt,
@@ -271,7 +271,6 @@ async def read_chat_history(app: Client, message: types.Message):
 
     if len(message.text.split()) >= 3 and message.text.split()[1].startswith('--c='):
         count = int(message.text.split()[1].replace('--c=', '')) if message.text.split()[1].replace('--c=', '').isdigit() else 20
-        print(count)
         prompt = ' '.join(message.text.split(' ')[2:])
     else:
         prompt = ' '.join(message.text.split(' ')[1:])
@@ -327,8 +326,6 @@ async def change_style(app: Client, message: types.Message):
         return await message.edit_text('Стиль общения изменён на `обычный`.', parse_mode=enums.ParseMode.MARKDOWN)
     
     style = ' '.join(message.text.split()[1:])
-
-    print(config['style'])
 
     config['style'] = style
 
