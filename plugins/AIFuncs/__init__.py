@@ -1,7 +1,6 @@
 from g4f.client import AsyncClient
 from g4f.Provider import RetryProvider, __providers__, OIVSCodeSer2, PollinationsAI, ApiAirforce
 from g4f.models import (
-    Blackbox,
     Chatai,
     Cloudflare,
     Copilot,
@@ -9,15 +8,12 @@ from g4f.models import (
     HuggingSpace,
     Grok,
     DeepseekAI_JanusPro7b,
-    Kimi,
     LambdaChat,
-    Mintlify,
     OIVSCodeSer0501,
     OIVSCodeSer2,
     OperaAria,
     Startnest,
     OpenAIFM,
-    PerplexityLabs,
     PollinationsAI,
     TeachAnything,
     Together,
@@ -41,12 +37,11 @@ g4f.debug.logging = True
 
 __description__ = Description(
     MainDescription("Плагин для работы с ИИ."),
-    FuncDescription('rqai', 'Возвращает ответ от ИИ.', prefixes=['.', '!', '/'], parameters=['промпт']),
+    FuncDescription('rqai', 'Возвращает ответ от ИИ.Также ИИ может смотреть изображение(просто отправьте изображение и в описании его напишите эту команду с промптом)', prefixes=['.', '!', '/'], parameters=['промпт']),
     FuncDescription('genimg', 'Генерирует изображение по запросу.', prefixes=['.', '!', '/'], parameters=['промпт']),
     FuncDescription('txtmodel', 'Меняет текстовую модель.Если не вводить параметр, то в консоль выведет список ИИ.', prefixes=['.', '!', '/'], parameters=['модель']),
     FuncDescription('imgmodel', 'Меняет модель для изображения.Если не вводить параметр, то в консоль выведет список ИИ.', prefixes=['.', '!', '/'], parameters=['модель']),
     FuncDescription('correct', 'Делает предложения корректным и грамотным.', prefixes=['.', '!', '/'], parameters=['предложения']),
-    FuncDescription('vimg', 'ИИ смотрит на изображение, благодаря этому он может знать, что на фото.(Отправляйте фото и в описании/подпись пишите команду)', prefixes=['.', '!', '/'], parameters=['промпт']),
     FuncDescription('turn_websrch', 'Включения/выключения технологии web search для ИИ(Может не работать).', prefixes=['.', '!', '/']),
     FuncDescription('aihtry', 'ИИ читает историю чата.', prefixes=['.', '!', '/'], parameters=[r'\-\-c={число} и/или текст']),
     FuncDescription('style', 'Изменяет стиль общения ИИ.По умолчанию он обычный, если нечего не указывать, стиль изменится на по умолчанию.', prefixes=['.', '!', '/'], parameters=['не обязательно(стиль)']),
@@ -61,24 +56,26 @@ Data.get_config('AIFuncs').setdefault(config)
 
 config = Data.get_config('AIFuncs')
 
-best_model = Fore.YELLOW + '👑Надёжные модели👑' + Fore.RESET + '\n' + Fore.RED + '[ ДЛЯ ТЕКСТА ]' + Fore.RESET + '\n' + '\n'.join(['gpt-4', 'gpt-4o', 'gpt-4o-mini', 'o1', 'o1-mini', 'o3-mini', 'o3-mini-high', 'o4-mini', 'o4-mini-high', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4.5', 'llama-2-70b', 'llama-3-8b', 'llama-3-70b', 'llama-3.1-8b', 'llama-3.1-70b', 'llama-3.1-405b', 'llama-3.2-3b', 'llama-3.2-11b', 'llama-3.2-90b', 'llama-3.3-70b', 'gemini-2.0', 'gemini-2.0-flash', 'gemini-2.0-flash-thinking', 'gemini-2.5-flash', 'gemini-2.5-pro', 'codegemma-7b', 'gemma-2b', 'gemma-1.1-7b', 'gemma-2-9b', 'gemma-2-27b', 'gemma-3-4b', 'gemma-3-12b', 'gemma-3-27b', 'gemma-3n-e4b', 'qwen-2-72b', 'qwen-2-vl-7b', 'qwen-2-vl-72b', 'qwen-2.5', 'qwen-2.5-7b', 'qwen-2.5-72b', 'qwen-2.5-coder-32b', 'qwen-2.5-1m', 'qwen-2.5-max', 'qwen-2.5-vl-72b', 'qwen-3-235b', 'qwen-3-32b', 'qwen-3-30b', 'qwen-3-14b', 'qwen-3-4b', 'qwen-3-1.7b', 'qwen-3-0.6b', 'qwq-32b', 'deepseek-v3', 'deepseek-r1', 'deepseek-r1-turbo', 'deepseek-r1-distill-llama-70b', 'deepseek-v3', 'deepseek-r1', 'deepseek-r1-turbo', 'grok-2', 'grok-3', 'grok-3-r1']) + '\n\n' + Fore.RED + '[ ДЛЯ ИЗОБРАЖЕНИЙ ]' + Fore.RESET + '\n' + '\n'.join(['dall-e-3', 'gpt-image', 'sdxl-turbo', 'sd-3.5-large', 'flux', 'flux-pro', 'flux-dev', 'flux-schnell', 'flux-redux', 'flux-depth', 'flux-canny', 'flux-kontext', 'flux-dev-lora', 'gemini-2.0-flash', 'gemini-2.0-flash-thinking', 'gemini-2.5-flash', 'gemini-2.5-pro'])
+best_model = Fore.YELLOW + '👑Надёжные модели👑' + Fore.RESET + '\n' + Fore.RED + '[ ДЛЯ ТЕКСТА ]' + Fore.RESET + '\n' + '\n'.join(['gpt-4', 'gpt-4o', 'gpt-4o-mini', 'o1', 'o1-mini', 'o3-mini', 'o3-mini-high', 'o4-mini', 'o4-mini-high', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4.5', 'llama-3.1-8b', 'llama-3.1-70b', 'llama-3.1-405b', 'llama-3.2-3b', 'llama-3.2-11b', 'llama-3.2-90b', 'llama-3.3-70b', 'gemini-2.0', 'gemini-2.0-flash', 'gemini-2.0-flash-thinking', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemma-3-4b', 'gemma-3-12b', 'gemma-3-27b', 'gemma-3n-e4b', 'qwen-3-235b', 'qwen-3-32b', 'qwen-3-30b', 'qwen-3-14b', 'qwen-3-4b', 'qwen-3-1.7b', 'qwen-3-0.6b', 'qwq-32b', 'deepseek-v3', 'deepseek-r1', 'deepseek-r1-turbo', 'deepseek-r1-distill-llama-70b', 'deepseek-v3', 'deepseek-r1', 'deepseek-r1-turbo', 'grok-2', 'grok-3', 'grok-3-r1']) + '\n\n' + Fore.RED + '[ ДЛЯ ИЗОБРАЖЕНИЙ ]' + Fore.RESET + '\n' + '\n'.join(['dall-e-3', 'gpt-image', 'sdxl-turbo', 'sd-3.5-large', 'flux', 'flux-pro', 'flux-dev', 'flux-schnell', 'flux-redux', 'flux-depth', 'flux-canny', 'flux-kontext', 'flux-dev-lora', 'gemini-2.0-flash', 'gemini-2.0-flash-thinking', 'gemini-2.5-flash', 'gemini-2.5-pro'])
 
 def initialization(_):
     if config['history_len'] >= 50 and config['warnings']:
-        print(Fore.WHITE + "AIFuncs " + Fore.YELLOW + "| ⚠ Чем больше длинна истории, тем больше нагрузка для юзер бота !!!")
+        print(Fore.WHITE + "AIFuncs " + Fore.YELLOW + "| ⚠ Чем больше длинна истории, тем больше нагрузка для юзер бота !")
 
 class Conservation:
     def __init__(self):
         self.client = AsyncClient(provider=RetryProvider([
-            Blackbox, Chatai, Cloudflare, Copilot, DeepInfra, HuggingSpace, Grok, 
-            DeepseekAI_JanusPro7b, Kimi, LambdaChat, Mintlify, OIVSCodeSer2, 
-            OIVSCodeSer0501, OperaAria, Startnest, OpenAIFM, PerplexityLabs, 
+            Chatai, Cloudflare, Copilot, DeepInfra, HuggingSpace, Grok, 
+            DeepseekAI_JanusPro7b, LambdaChat, OIVSCodeSer2, 
+            OIVSCodeSer0501, OperaAria, Startnest, OpenAIFM, 
             PollinationsAI, TeachAnything, Together, WeWordle, Yqcloud
         ]))
         self.history = [{
             "role": "system",
             "content": "Ты обычный assistant в телеграмме, ты общаешься с user.Если требуется, используй форматирование: ```lang_programming\ntext\n```, **text**, ~~text~~, __text__, `text_to_copy`.Общайся в стиле(если обычный, игнорируй это): " + config['style']
         }] + config['history']
+
+        self.system_prompts = []
 
     def add_message(self, role, content) -> None:
         self.history.append({
@@ -100,7 +97,7 @@ class Conservation:
     async def get_response(self, user_message, web_search: bool=False, history: bool=True, image: bytes=None) -> Union[str, None]:
         if history: self.add_message("user", user_message)
 
-        messages: list[Dict[str, Any]] = self.history + [{"role": "user", "content": user_message}] if history else [{"role": "user", "content": user_message}]
+        messages: list[Dict[str, Any]] = self.system_prompts + self.history + [{"role": "user", "content": user_message}] if history else [{"role": "user", "content": user_message}]
 
         providers = RetryProvider([OIVSCodeSer2, PollinationsAI, ApiAirforce]) if image != None else None
         
@@ -109,7 +106,8 @@ class Conservation:
             messages=messages,
             web_search=web_search if web_search is not None else config['web_search'],
             image=image,
-            provider=providers
+            provider=providers,
+            max_tokens=4096
         )
         
         assistant_response = response.choices[0].message.content
@@ -156,9 +154,17 @@ async def request_ai(app: Client, message: types.Message):
 
     await message.edit_text('__Ожидайте ответ от ИИ...__', parse_mode=enums.ParseMode.MARKDOWN)
 
-    ai_text = await _ai.get_response(message.text.split(maxsplit=1)[1])
+    if message.photo is not None:
+        _image = await app.download_media(message, in_memory=True)
+
+        file_bytes = bytes(_image.getbuffer())
+    else:
+        file_bytes = None
+
+    ai_text = await _ai.get_response(message.text.split(maxsplit=1)[1], image=file_bytes)
 
     if ai_text is None:
+        await message.edit_text('__Ожидайте ответ от ИИ...__(повторная попытка)', parse_mode=enums.ParseMode.MARKDOWN)
         return await request_ai(app, message)
 
     await message.edit_text(ai_text, parse_mode=enums.ParseMode.MARKDOWN)
@@ -238,21 +244,6 @@ async def correct_words(app: Client, message: types.Message):
     except:
         await correct_words(app, message)
 
-@func(filters.command('vimg', prefixes=['.', '!', '/']) & filters.me & filters.photo)
-async def view_image(app: Client, message: types.Message):
-    if len(message.caption.split()) == 1:
-        return await message.edit_text('Вы не верно ввели параметры.Пример: .vimg Что то связанное с фото.(Нужно отравить фото с описанием таким)')
-
-    await message.edit_text('__Ожидайте ответ от ИИ...__', parse_mode=enums.ParseMode.MARKDOWN)
-
-    file = await app.download_media(message, in_memory=True)
-
-    file_bytes = bytes(file.getbuffer())
-
-    ai_image_view = await _ai.get_response(message.caption.split(maxsplit=1)[1], image=file_bytes)
-
-    await message.edit_text(ai_image_view, parse_mode=enums.ParseMode.MARKDOWN)
-
 @func(filters.command('turn_websrch', prefixes=['.', '!', '/']) & filters.me)
 async def turn_web_search(app: Client, message: types.Message):
     if config['web_search']:
@@ -288,7 +279,7 @@ async def read_chat_history(app: Client, message: types.Message):
     
     await message.edit_text('__ИИ генерирует сообщение...__')
     
-    ai_text = await _ai.response_with_prompt([_ai.history[0], {"role": "system", "content": "Это история чата пользователей, их имена помечены как: {имя}: {текст}, а сообщение пользователя никак не помечено"}, *history, {"role": "user", "content": f"{prompt}"}])
+    ai_text = await _ai.response_with_prompt([_ai.history[0], {"role": "system", "content": "Это история чата пользователей, их имена помечены как: {имя}: {текст}, если никак не помечено, значит это промпт пользователя"}, *history, {"role": "user", "content": f"{prompt}"}])
 
     await message.edit_text(ai_text, parse_mode=enums.ParseMode.MARKDOWN)
 
@@ -317,7 +308,7 @@ async def ai_afk_privat(app: Client, message: types.Message):
         except:
             await app.send_message(message.from_user.id, ai_text, parse_mode=enums.ParseMode.MARKDOWN)
 
-@func(filters.command('style', prefixes=['.', '!', '/']))
+@func(filters.command('style', prefixes=['.', '!', '/']) & filters.me)
 async def change_style(app: Client, message: types.Message):
     global config
     if len(message.text.split()) == 1:
@@ -330,3 +321,16 @@ async def change_style(app: Client, message: types.Message):
     config['style'] = style
 
     await message.edit_text(f'Стиль общения изменён на: `{style}`', parse_mode=enums.ParseMode.MARKDOWN)
+
+@func(filters.command('sysprompt', prefixes=['.', '!', '/']) & filters.me)
+async def set_system_prompt(app: Client, message: types.Message):
+    if len(message.text.split()) == 1:
+        _ai.system_prompts.clear()
+
+        return await message.edit_text('Системный промпт был очищен.')
+    
+    prompt = ' '.join(message.text.split()[1:])
+
+    _ai.system_prompts.append({"role": "system", "content": prompt})
+
+    await message.edit_text('Системный промпт был задан.')

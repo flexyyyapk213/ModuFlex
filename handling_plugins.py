@@ -1,9 +1,11 @@
-import os
-from loads import Data, Description, download_library
 import inspect
-import traceback
 import logging
+import os
+import traceback
+import json
+
 from __init__ import __version__
+from loads import Data, Description, download_library
 from packaging import version
 from packaging.specifiers import SpecifierSet
 
@@ -14,7 +16,6 @@ def handling_plugins():
 
     for folder in folders:
         try:
-            # То есть, папка с именем: 'Plugin name' не будет считаться как плагин
             if ' ' in folder:
                 continue
             
@@ -23,16 +24,17 @@ def handling_plugins():
                 Data.cache.update({
                     folder: {
                         "funcs": {},
-                        "classes": {}
+                        "classes": {},
+                        "routes": {}
                     }
                                 })
 
                 if os.path.exists(os.path.join('plugins', folder, '__modules__.txt')):
-                    if not Data.config['ModuFlex'].get('libs_is_dwnld', False) or Data.config['ModuFlex'].get('libs_is_dwnld', False) and not Data.one_download_libs:
+                    if not Data.config['ModuFlex'].get('libs_is_dwnld', False) and Data.one_download_libs or Data.config['ModuFlex'].get('libs_is_dwnld', False):
                         with open(os.path.join('plugins', folder, '__modules__.txt')) as modules:
                             download_library(modules.readlines())
 
-                md = __import__('plugins.' + folder + '.__init__')
+                md = __import__('plugins.' + folder)
 
                 if hasattr(dict(md.__dict__.items())[folder], '__description__'):
                     if not isinstance(dict(md.__dict__.items())[folder].__description__, Description):
@@ -49,16 +51,21 @@ def handling_plugins():
                         continue
                     
                     Data.initializations.append(dict(md.__dict__.items())[folder].initialization)
-                
-                if hasattr(dict(md.__dict__.items())[folder], '__ModuFlex_version__'):
-                    if isinstance(dict(md.__dict__.items())[folder].__ModuFlex_version__, str):
-                        spec = SpecifierSet(dict(md.__dict__.items())[folder].__ModuFlex_version__)
-                        current = version.parse(__version__)
 
-                        if not spec.contains(current):
-                            Data.cache.pop(folder)
+                if os.path.exists(os.path.join('plugins', folder, 'manifest.json')):
+                    with open(os.path.join('plugins', folder, 'manifest.json')) as f:
+                        manifest = json.load(f)
+                    
+                    spec = SpecifierSet(manifest['mf_version'])
+                    current = version.parse(__version__)
+
+                    if not spec.contains(current):
+                        Data.cache.pop(folder)
+                        try:
                             Data.description.pop(folder)
                             Data.initializations.pop()
+                        except IndexError:
+                            pass
         except Exception as e:
             traceback.print_exc()
             logging.warning(traceback.format_exc())

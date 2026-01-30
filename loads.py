@@ -13,8 +13,9 @@ from alive_progress import alive_it, styles
 import subprocess
 import sys
 from datetime import datetime
+from quart import Blueprint
 
-logging.basicConfig(filename='script.log', level=logging.WARN)
+logging.basicConfig(filename='script.log', level=logging.INFO)
 
 __all__ = [
     'Data',
@@ -38,6 +39,12 @@ class ScriptState(int, Enum):
     exit = 2
 
 class MappingConfig(dict):
+    """
+    Класс для управления настройками (конфигом) конкретного плагина.
+
+    Изменения автоматически сохраняются в файл configuration.json.
+    """
+
     def __init__(self, plugin_name: str):
         self.plugin_name = plugin_name
 
@@ -103,9 +110,11 @@ class MappingConfig(dict):
 
     def setdefault(self, _dict: Dict) -> None:
         """
-        Устанавливает по умолчанию заданый словарь, если сам конфиг плагина пуст.
-        Если же конфиг плагина не пуст, то функция ищет не достающие ключи и вставляет.
-        Удобно для тех, кто добавляет новые ключи и не хочет писать для такого случая код.
+        Гарантирует, что в конфиге есть все поля, что указаны в _dict.
+        Если ключа нет (или тип не совпадает), он добавляется с соответствующим значением.
+
+        Args:
+            _dict (Dict): Cловарь "ключ: значение" с дефолтными параметрами.
         """
         if not Data.config[self.plugin_name]:
             self.update(_dict)
@@ -144,7 +153,9 @@ class Data:
     check_for_update = True
 
     # Таймаут скачивания библиотеки
-    timeout_download_lib: int = 60
+    timeout_download_lib: int = 120
+
+    experimental = False
 
     DEFAULT_MODUFLEX_CONFIG = {'dwnlds_libs_date': (datetime.now()).strftime('%Y-%m-%d'), 'libs_is_dwnld': False}
 
@@ -153,7 +164,8 @@ class Data:
             config = json.load(f)
     except FileNotFoundError:
         with open('configuration.json', 'w', encoding='utf-8') as f:
-            json.dump(config, f, ensure_ascii=False)
+            json.dump({}, f, ensure_ascii=False)
+            config = {}
     except Exception as e:
         logging.error(traceback.format_exc())
         print(e)
@@ -168,17 +180,15 @@ class Data:
     @classmethod
     def get_config(cls, plugin_name: Optional[str]=None) -> Union[MappingConfig, Dict]:
         """
-        Возвращает словарь настроек.
-        Если оставить `plugin_name` None, вернёт конфиги плагинов.
-        Если плагин попытается изменить данные чужого плагина, то у него этого не получиться.
+        Возвращает конфиг для указанного плагина, либо словарь всех конфигов.
+
+        Если plugin_name не задан, возвращается копия всех конфигов для чтения.
+        Если plugin_name соответствует вызывающему плагину, выдается управляющий MappingConfig для редактирования.
 
         Args:
-            plugin_name (Optional[str]=None): Имя плагина
+            plugin_name (Optional[str]): Имя плагина. Если не указано, будет возвращён весь конфиг (копия, нельзя изменять).
         Returns:
-            Union[
-            Mapping[str, Any] - словарь нельзя изменить,
-            dict - это не ваш конфиг, но он доступен в качестве просмотра
-            ]
+            Union[MappingConfig, dict]: Управляющий MappingConfig или копия конфига.
         """
         if plugin_name is not None:
             if plugin_name not in Data.config:
@@ -206,7 +216,41 @@ class Data:
         with open('configuration.json', 'w', encoding='utf-8') as f:
             json.dump(Data.config, f, ensure_ascii=False)
 
+class Module:
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        class_filename = inspect.getfile(cls)
+        path_parts = os.path.normpath(class_filename).split(os.sep)
+        pack_name = path_parts[path_parts.index('plugins') + 1]
+
+        _cls = cls()
+        
+        if id(_cls) not in Data.cache[pack_name]['classes']:
+            Data.cache[pack_name]['classes'].update({id(_cls): {"class": _cls, "methods": {}}})
+        
+        if 'blueprint' not in Data.cache[pack_name]['routes']:
+            bp = Blueprint(name=pack_name, import_name=pack_name, template_folder=os.path.join('plugins', pack_name, 'templates'), static_folder=os.path.join('plugins', pack_name, 'static'), url_prefix='/' + pack_name)
+
+            Data.cache[pack_name]['routes'].update({"blueprint": bp, "funcs": {}, "methods": {}})
+
+        for func in cls.__dict__.values():
+            if hasattr(func, '_type'):
+                if func._type == 'route':
+                    Data.cache[pack_name]['routes']['methods'][func.__name__] = {"method": func, "class_id": id(_cls), "parameters": {"rule": "/" + func.parameters[0], **func.parameters[1]}}
+                else:
+                    Data.cache[pack_name]['classes'][id(_cls)]['methods'].update({func.__name__: {"method": func, "filters": func.filters, "prefixes": func.prefixes, "command_name": func.command_name, "type": func._type}})
+
 class chatType(str, Enum):
+    """
+    Перечисление возможных типов получателей чата.
+
+    Атрибуты:
+        DEFAULT: Обычный чат (по умолчанию)
+        PRIVATE: Личные сообщения
+        CHAT: Групповой чат
+        CHANNEL: Канал
+        ALL: Все чаты
+    """
     DEFAULT = "default"
     PRIVATE = "private"
     CHAT = "chat"
@@ -215,26 +259,36 @@ class chatType(str, Enum):
 
 class MainDescription:
     """
-    Класс для описания плагина.
+    Главное описание для плагина (используется в help/списке плагинов).
+
+    Args:
+        description (str): Описание плагина (строка).
     """
     def __init__(self, description: str) -> None:
         self.description = description
 
 class FuncDescription:
     """
-    Класс для описания функций плагина.
+    Описание конкретной команды плагина.
+
+    Args:
+        `command` (str): Название (ключ) команды (пример: 'start').
+        `description` (str): Описание (что делает команда).
+        `hyphen` (str): Символ-разделитель между командой и описанием (обычно ' - ').
+        `prefixes` (Union[Tuple, List], optional): Допустимые префиксы для команды (пример: ['/', '!']).
+        `parameters` (Union[Tuple, List], optional): Параметры команды (позиционные или именованные).
     """
-    def __init__(self, command: str, description: str="Описание отсутствует.", hyphen: str=' - ', prefixes: Union[Tuple, List]=None, parameters: Union[Tuple, List]=[]) -> None:
-        """
-        Args:
-            command (str): Команда.
-            description (str): Описание(Опционально).
-            hyphen (str): Символ заменяющий дефис(Опционально).
-            prefixes (Union[tuple, list]): Префиксы к командам(Опционально).
-            parameters (Union[tuple, list]): Параметры к командам(Опционально).
-        Return:
-            None
-        """
+    def __init__(
+        self, 
+        command: str, 
+        description: str="Описание отсутствует.", 
+        hyphen: str=' - ', 
+        prefixes: Union[Tuple, List]=None, 
+        parameters: Union[Tuple, List]=None
+    ) -> None:
+        if parameters is None:
+            parameters = []
+
         self.command = command
         self.description = description
         self.hyphen = hyphen
@@ -243,7 +297,11 @@ class FuncDescription:
 
 class Description:
     """
-    Класс для описания плагина и его функций.
+    Описание плагина и всех его функций/команд.
+
+    Args:
+        main_description (MainDescription): Главное описание плагина.
+        *args (FuncDescription): Описания его функций/команд.
     """
     def __init__(self, main_description: MainDescription, *args: FuncDescription):
         self.main_description = main_description
@@ -253,23 +311,17 @@ class Description:
         for func in args:
             self.funcs_description.update({func.command: func})
 
-class PluginInfo:
+def func(_filters: filters, description: str='Описание отсутствует.') -> Callable:
     """
-    Класс информации плагина.
-    """
-    def __init__(self):
-        ...
+    Декоратор для регистрации обработчика сообщений (команды).
 
-def func(_filters: filters) -> Callable:
-    """
-    Декоратор для обработки сообщений.
-    :param _filters: фильтры pyrogram
-    :return: Callable
+    Args:
+        _filters (filters): Фильтры pyrogram для отбора сообщений.
+        description (str): Описание команды.
+    Returns:
+        Callable: Зарегистрированная функция-обработчик.
     """
     def reg(_func: Callable) -> None:
-        if not inspect.isfunction(_func):
-            raise ValueError('Is not a function')
-        
         frame = inspect.currentframe()
         caller_frame = frame.f_back
         caller_filename = caller_frame.f_code.co_filename
@@ -287,34 +339,48 @@ def func(_filters: filters) -> Callable:
         except KeyError:
             command_name = None
         
-        if pack_name in Data.description:
-            if command_name is not None and prefixes is not None:
-                if command_name in Data.description[pack_name].funcs_description:
-                    Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
-                else:
-                    Data.description[pack_name].funcs_description.update({command_name: FuncDescription(command_name, prefixes=prefixes)})
+        if caller_frame.f_code.co_name != '<module>':
+            _func._type = 'default'
+            _func.prefixes = prefixes
+            _func.command_name = command_name
+            _func.pack_name = pack_name
+            _func.filters = _filters
+
+            del frame
+            return _func
         else:
-            Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes))})
+            if pack_name in Data.description:
+                if command_name is not None and prefixes is not None:
+                    if command_name in Data.description[pack_name].funcs_description:
+                        Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
+                        Data.description[pack_name].funcs_description[command_name].description = description
+                    else:
+                        Data.description[pack_name].funcs_description.update({command_name: FuncDescription(command_name, prefixes=prefixes, description=description)})
+            else:
+                Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
 
-        Data.cache[pack_name]['funcs'].update({_func.__name__: {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
+            Data.cache[pack_name]['funcs'].update({_func.__name__: {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
+        
+        del frame
     return reg
 
-def private_func(_filters: filters=None) -> Callable:
+def private_func(_filters: filters=None, description: str='Описание отсутствует.') -> Callable:
     """
-    Декоратор для обработки сообщений в личном чате.
-    Не имеет параметров.
-    :return: Callable
+    Декоратор для регистрации обработчика сообщений в личных сообщениях.
 
-    !Не рекомендуется к использованию.
+    Внимание: Использование не рекомендуется. Старая система, лучше использовать универсальный декоратор func.
+
+    Args:
+        _filters (filters, optional): Фильтры pyrogram (или None).
+        description (str): Описание команды.
+    Returns:
+        Callable: Зарегистрированная функция-обработчик.
     """
     def reg(_func: Callable) -> None:
-        if not inspect.isfunction(func):
-            raise ValueError('Is not a function')
-
         frame = inspect.currentframe()
         caller_frame = frame.f_back
         caller_filename = caller_frame.f_code.co_filename
-
+        
         path_parts = os.path.normpath(caller_filename).split(os.sep)
         pack_name = path_parts[path_parts.index('plugins') + 1]
 
@@ -328,30 +394,48 @@ def private_func(_filters: filters=None) -> Callable:
         except KeyError:
             command_name = None
         
-        if pack_name in Data.description:
-            if command_name is not None and prefixes is not None:
-                if command_name in Data.description[pack_name]:
-                    Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
+        if caller_frame.f_code.co_name != '<module>':
+            _func._type = 'private'
+            _func.prefixes = prefixes
+            _func.command_name = command_name
+            _func.pack_name = pack_name
+            _func.filters = _filters
 
-        Data.cache[pack_name]['funcs'].update({_func.__name__: {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "private"}})
+            del frame
+            return _func
+        else:
+            if pack_name in Data.description:
+                if command_name is not None and prefixes is not None:
+                    if command_name in Data.description[pack_name].funcs_description:
+                        Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
+                        Data.description[pack_name].funcs_description[command_name].description = description
+                    else:
+                        Data.description[pack_name].funcs_description.update({command_name: FuncDescription(command_name, prefixes=prefixes, description=description)})
+            else:
+                Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
+
+            Data.cache[pack_name]['funcs'].update({_func.__name__: {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
+        
+        del frame
     return reg
 
-def chat_func(_filters: filters=None) -> Callable:
+def chat_func(_filters: filters=None, description: str='Описание отсутствует.') -> Callable:
     """
-    Декоратор для обработки сообщений в чате.
-    Не имеет параметров.
-    :return: Callable
+    Декоратор для регистрации обработчика сообщений из чата (не ЛС).
 
-    !Не рекомендуется к использованию.
+    Внимание: Использование не рекомендуется. Старая система, лучше использовать универсальный декоратор func.
+
+    Args:
+        _filters (filters, optional): Фильтры pyrogram (или None).
+        description (str): Описание команды.
+    Returns:
+        Callable: Зарегистрированная функция-обработчик.
     """
     def reg(_func: Callable) -> None:
-        if not inspect.isfunction(func):
-            raise ValueError('Is not a function')
-
         frame = inspect.currentframe()
         caller_frame = frame.f_back
         caller_filename = caller_frame.f_code.co_filename
-
+        
         path_parts = os.path.normpath(caller_filename).split(os.sep)
         pack_name = path_parts[path_parts.index('plugins') + 1]
 
@@ -365,30 +449,48 @@ def chat_func(_filters: filters=None) -> Callable:
         except KeyError:
             command_name = None
         
-        if pack_name in Data.description:
-            if command_name is not None and prefixes is not None:
-                if command_name in Data.description[pack_name]:
-                    Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
+        if caller_frame.f_code.co_name != '<module>':
+            _func._type = 'chat'
+            _func.prefixes = prefixes
+            _func.command_name = command_name
+            _func.pack_name = pack_name
+            _func.filters = _filters
 
-        Data.cache[pack_name]['funcs'].update({_func.__name__: {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "chat"}})
+            del frame
+            return _func
+        else:
+            if pack_name in Data.description:
+                if command_name is not None and prefixes is not None:
+                    if command_name in Data.description[pack_name].funcs_description:
+                        Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
+                        Data.description[pack_name].funcs_description[command_name].description = description
+                    else:
+                        Data.description[pack_name].funcs_description.update({command_name: FuncDescription(command_name, prefixes=prefixes, description=description)})
+            else:
+                Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
+
+            Data.cache[pack_name]['funcs'].update({_func.__name__: {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
+        
+        del frame
     return reg
 
-def channel_func(_filters: filters=None) -> Callable:
+def channel_func(_filters: filters=None, description: str='Описание отсутствует.') -> Callable:
     """
-    Декоратор для обработки сообщений в канале чате.
-    Не имеет параметров.
-    :return: Callable
+    Декоратор для регистрации обработчика сообщений из канала.
 
-    !Не рекомендуется к использованию.
+    Внимание: Использование не рекомендуется. Старая система, лучше использовать универсальный декоратор func.
+
+    Args:
+        _filters (filters, optional): Фильтры pyrogram (или None).
+        description (str): Описание команды.
+    Returns:
+        Callable: Зарегистрированная функция-обработчик.
     """
     def reg(_func: Callable) -> None:
-        if not inspect.isfunction(func):
-            raise ValueError('Is not a function')
-
         frame = inspect.currentframe()
         caller_frame = frame.f_back
         caller_filename = caller_frame.f_code.co_filename
-
+        
         path_parts = os.path.normpath(caller_filename).split(os.sep)
         pack_name = path_parts[path_parts.index('plugins') + 1]
 
@@ -402,30 +504,48 @@ def channel_func(_filters: filters=None) -> Callable:
         except KeyError:
             command_name = None
         
-        if pack_name in Data.description:
-            if command_name is not None and prefixes is not None:
-                if command_name in Data.description[pack_name]:
-                    Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
+        if caller_frame.f_code.co_name != '<module>':
+            _func._type = 'channel'
+            _func.prefixes = prefixes
+            _func.command_name = command_name
+            _func.pack_name = pack_name
+            _func.filters = _filters
 
-        Data.cache[pack_name]['funcs'].update({_func.__name__: {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "channel"}})
+            del frame
+            return _func
+        else:
+            if pack_name in Data.description:
+                if command_name is not None and prefixes is not None:
+                    if command_name in Data.description[pack_name].funcs_description:
+                        Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
+                        Data.description[pack_name].funcs_description[command_name].description = description
+                    else:
+                        Data.description[pack_name].funcs_description.update({command_name: FuncDescription(command_name, prefixes=prefixes, description=description)})
+            else:
+                Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
+
+            Data.cache[pack_name]['funcs'].update({_func.__name__: {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
+        
+        del frame
     return reg
 
-def all_func(_filters: filters=None) -> Callable:
+def all_func(_filters: filters=None, description: str='Описание отсутствует.') -> Callable:
     """
-    Декоратор для обработки сообщений по всему чату.
-    Не имеет параметров.
-    :return: Callable
+    Декоратор для регистрации обработчика сообщений для всех чатов/типов.
 
-    !Не рекомендуется к использованию.
+    Внимание: Использование не рекомендуется. Старая система, лучше использовать универсальный декоратор func.
+
+    Args:
+        _filters (filters, optional): Фильтры pyrogram (или None).
+        description (str): Описание команды.
+    Returns:
+        Callable: Зарегистрированная функция-обработчик.
     """
     def reg(_func: Callable) -> None:
-        if not inspect.isfunction(func):
-            raise ValueError('Is not a function')
-
         frame = inspect.currentframe()
         caller_frame = frame.f_back
         caller_filename = caller_frame.f_code.co_filename
-
+        
         path_parts = os.path.normpath(caller_filename).split(os.sep)
         pack_name = path_parts[path_parts.index('plugins') + 1]
 
@@ -439,22 +559,76 @@ def all_func(_filters: filters=None) -> Callable:
         except KeyError:
             command_name = None
         
-        if pack_name in Data.description:
-            if command_name is not None and prefixes is not None:
-                if command_name in Data.description[pack_name]:
-                    Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
+        if caller_frame.f_code.co_name != '<module>':
+            _func._type = 'all'
+            _func.prefixes = prefixes
+            _func.command_name = command_name
+            _func.pack_name = pack_name
+            _func.filters = _filters
 
-        Data.cache[pack_name]['funcs'].update({_func.__name__: {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "all"}})
+            del frame
+            return _func
+        else:
+            if pack_name in Data.description:
+                if command_name is not None and prefixes is not None:
+                    if command_name in Data.description[pack_name].funcs_description:
+                        Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
+                        Data.description[pack_name].funcs_description[command_name].description = description
+                    else:
+                        Data.description[pack_name].funcs_description.update({command_name: FuncDescription(command_name, prefixes=prefixes, description=description)})
+            else:
+                Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
+
+            Data.cache[pack_name]['funcs'].update({_func.__name__: {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
+        
+        del frame
+    return reg
+
+def route(rule: str, **options) -> Callable:
+    """
+    Декоратор для регистрации HTTP-роута (маршрута web-интерфейса плагина).
+
+    Args:
+        rule (str): URL-маршрут (например: '/settings').
+        **options: Дополнительные параметры для Blueprint.route.
+    Returns:
+        Callable: Зарегистрированная функция-обработчик.
+    """
+    def reg(_func: Callable) -> None:
+        frame = inspect.currentframe()
+        caller_frame = frame.f_back
+        caller_filename = caller_frame.f_code.co_filename
+        
+        path_parts = os.path.normpath(caller_filename).split(os.sep)
+        pack_name = path_parts[path_parts.index('plugins') + 1]
+
+        if caller_frame.f_code.co_name != '<module>':
+            _func._type = 'route'
+            _func.pack_name = pack_name
+            _func.parameters = (rule, options)
+
+            del frame
+            return _func
+        else:
+            if 'blueprint' not in Data.cache[pack_name]['routes']:
+                bp = Blueprint(name=pack_name, import_name=pack_name, template_folder=os.path.join('plugins', pack_name, 'templates'), static_folder=os.path.join('plugins', pack_name, 'static'), url_prefix='/' + pack_name)
+
+                Data.cache[pack_name]['routes'].update({"blueprint": bp, "funcs": {}, "methods": {}})
+            
+            Data.cache[pack_name]['routes']['funcs'][_func.__name__] = {"func": _func, "parameters": {"rule": "/" + rule, **options}}
+        
     return reg
 
 def set_modules(modules: List) -> None:
     """
-    Функция для указания сторонних библиотек.
-    Вызывать перед импортами сторонних библиотек.
-    :param modules: список сторонних библиотек
-    :return: None
-    """
+    Указывает внешние (сторонние) библиотеки для установки через pip, если требуется.
 
+    Крайне рекомендуется использовать только для особых случаев (есть лучший способ - смотри contribution.md).
+    Вызывать перед импортом этих библиотек.
+
+    Args:
+        modules (List[str]): Список имён сторонних библиотек (строки).
+    """
     for indx, module in enumerate(modules.copy()):
         if module in Data.modules or importlib.util.find_spec(module) is not None:
             try:
@@ -480,6 +654,7 @@ def download_library(libs: List[str]) -> None:
             
             if user_input.lower() == 'a':
                 _libs.extend(libs)
+                break
             elif user_input.lower() == 'y':
                 _libs.append(_lib)
             else:

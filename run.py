@@ -1,10 +1,30 @@
 import importlib.util
+import json
+import logging
+import logging.handlers
+import os
+import re
+import subprocess
 import sys
 from pathlib import Path
-import re
-import os
-import subprocess
-from loads import Data
+
+file_handler = logging.handlers.RotatingFileHandler(
+    'script.log',
+    maxBytes=1024 * 42,
+    backupCount=3,
+    encoding='utf-8'
+)
+
+console_handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+console_handler.setFormatter(formatter)
+
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.WARNING)
+
+root_logger.addHandler(file_handler)
+root_logger.addHandler(console_handler)
 
 venv_path = Path(sys.executable)
 
@@ -14,8 +34,13 @@ try:
 
         use_botvenv = re.search(r'use_botvenv\s*=\s*(true|false)', text)
 
+        experimental = re.search(r'experimental\s*=\s*(true|false)', text)
+
         if use_botvenv is not None: use_botvenv = {"true": True, "false": False}[use_botvenv.group(1)]
         else: use_botvenv = True
+
+        if experimental is not None: experimental = {"true": True, "false": False}[experimental.group(1)]
+        else: experimental = False
 except FileNotFoundError:
     print('Файл конфигурации не был обнаружен.Создайте в корне папке файл config.ini и введите свои данные.(Подробнее в contribution.md)')
     exit()
@@ -49,6 +74,8 @@ if list(venv_path.parts)[-3] != 'botvenv' and use_botvenv:
         pass
     except FileNotFoundError:
         pass
+    except NameError:
+        pass
     except Exception as e:
         print(e)
 
@@ -59,24 +86,45 @@ if importlib.util.find_spec('alive_progress') is None:
 
 from alive_progress import alive_it, styles
 
-if 'ModuFlex' in Data.config:
-    if not Data.config['ModuFlex']['libs_is_dwnld']:
+try:
+    with open('configuration.json') as f:
+        _config = json.load(f)
+except FileNotFoundError:
+    with open('configuration.json', 'w') as f:
+        json.dump({}, f, ensure_ascii=False)
+
+        _config = {}
+
+if 'ModuFlex' in _config:
+    if not _config['ModuFlex']['libs_is_dwnld']:
         for module in alive_it(__modules__, title='Проверка модулей', spinner=styles.SPINNERS['pulse'], theme='smooth'):
             if importlib.util.find_spec(module) is None:
-                subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                try:
+                    subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+                except subprocess.TimeoutExpired:
+                    pass
 else:
     for module in alive_it(__modules__, title='Проверка модулей', spinner=styles.SPINNERS['pulse'], theme='smooth'):
         if importlib.util.find_spec(module) is None:
-            subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+            except subprocess.TimeoutExpired:
+                pass
 
 import asyncio
-from time import sleep
-from pyrogram.client import Client
-from sqlite3 import OperationalError
-from main import main, api_id, api_hash, phone_number, password
 import gc
 import traceback
+from time import sleep
+
+from pyrogram.client import Client
+from sqlite3 import OperationalError
+
 from loads import ScriptState
+from main import main, api_id, api_hash, phone_number, password
+
+from loads import Data
+
+Data.experimental = experimental
 
 max_retries = 10
 retry_delay = 15

@@ -1,57 +1,43 @@
-import importlib.util
-import subprocess
-from typing import Dict
-
-from __init__ import __modules__, __news__
-
-from alive_progress import alive_it, styles
-
-import zipfile
-import shutil
-import os
-
-import re
-import inspect
-from concurrent.futures import ThreadPoolExecutor
-
 import asyncio
-import logging
+import copy
+import importlib.util
+import inspect
+import os
 import random
-
+import re
+import shutil
+import subprocess
 import time
 import traceback
+import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-
-import copy
-
-from pyrogram import Client, filters, enums
-from pyrogram.handlers import MessageHandler
-from pyrogram import types
-
-from terminaltexteffects.effects.effect_rain import Rain
-from terminaltexteffects.effects.effect_decrypt import Decrypt, DecryptConfig
-import requests
+from platform import python_version
+from typing import Dict
+import json
+import logging
 
 import pyfiglet
-from pyrogram.enums import ParseMode
-from platform import python_version
-
-from packaging import version as __version
+import requests
+import aiohttp
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from packaging import version as __version
+from packaging.specifiers import SpecifierSet
+from pyrogram import Client, filters, enums, types
+from pyrogram.enums import ParseMode
+from pyrogram.handlers import MessageHandler
 
-from loads import Data, ScriptState
+from alive_progress import alive_it, styles, alive_bar
 from handling_plugins import handling_plugins as handling_plg, handle_plugin
-from __init__ import __version__ as this_version
-
+from loads import Data, ScriptState
+from terminaltexteffects.effects.effect_decrypt import Decrypt, DecryptConfig
+from terminaltexteffects.effects.effect_rain import Rain
 from utils import merge_directories, __find_command_name__, check_update
 
-logging.basicConfig(filename='script.log', level=logging.WARN)
-
-# Чистка логов
-if os.path.getsize('script.log') >= 262_144:
-    with open('script.log', 'w') as f:
-        pass
+from __init__ import __modules__, __news__
+from __init__ import __version__ as this_version
+from web import app as approute
 
 registers = {}
 
@@ -91,10 +77,9 @@ there_is_update = False
 features_of_the_version = []
 stop = ScriptState.started
 auto_check_for_update = AsyncIOScheduler()
+logger = logging.getLogger(__name__)
 
 app = None
-
-# TODO: Сделать что то типа манифеста в скачивании плагина
 
 def check_updates():
     global there_is_update, features_of_the_version
@@ -127,10 +112,11 @@ def handling_updates():
 
     for update in updates:
         if not registers.get(update, False):
-            registers.update({update: {"funcs": {}, "classes": {}}})
+            registers.update({update: {"funcs": {}, "classes": {}, "routes": {}}})
 
         for func_name, _func in updates[update]['funcs'].items():
-            if registers[update]['funcs'].get(func_name, False):
+            #FIXME: Сделать вместо названий функции их айди
+            if registers[update]['funcs'].get(func_name, {}).get('func', False) == _func['func']:
                 continue
             
             if _func['command_name'] is not None:
@@ -140,6 +126,49 @@ def handling_updates():
                     Data.count_commands.update({_func['command_name']: [update]})
             
             registers[update]['funcs'].update({func_name: _func['func']})
+        
+        for class_id, _class in updates[update]['classes'].items():
+            if registers[update]['classes'].get(class_id, False):
+                continue
+
+            registers[update]['classes'].update({class_id: {"class": _class['class'], "methods": {}}})
+
+            for method_name, method in _class['methods'].items():
+                if registers[update]['classes'][class_id]['methods'].get(method_name, {}).get('method', False) != method['method']:
+                    continue
+
+                if method['command_name'] is not None:
+                    if method['command_name'] in Data.count_commands:
+                        Data.count_commands[method['command_name']].append(update)
+                    else:
+                        Data.count_commands.update({method['command_name']: [update]})
+                
+                registers[update]['classes'][class_id]['methods'].update({method_name: method['method']})
+        
+        #NOTE: Experimental
+        if updates[update]['routes'].get('blueprint', False) and Data.experimental:
+            
+            registers[update]['routes'].update({"funcs": {}, "methods": {}})
+
+            for key, value in updates[update]['routes']['funcs'].items():
+                #FIXME: Сделать вместо названий функции их айди
+                if registers[update]['routes']['funcs'].get(key, {}).get('func', False) == value['func']:
+                    continue
+
+                updates[update]['routes']['blueprint'].add_url_rule(view_func=value['func'], **value['parameters'])
+
+                registers[update]['routes']['funcs'].update({value['func'].__name__: {"func": value['func'], "parameters": value['parameters']}})
+            
+            for method_name, method in updates[update]['routes']['methods'].items():
+                #FIXME: Сделать вместо названий функции их айди
+                if registers[update]['routes']['methods'].get(method_name, {}).get('method', False) == method['method']:
+                    continue
+
+                updates[update]['routes']['blueprint'].add_url_rule(view_func=getattr(updates[update]['classes'][method['class_id']]['class'], method['method'].__name__), **method['parameters'])
+
+                registers[update]['routes']['methods'].update({method['method'].__name__: {"method": method['method'], "class_id": method['class_id'], "parameters": method['parameters']}})
+            
+            approute.register_blueprint(updates[update]['routes']['blueprint'])
 
 async def help(_, msg: types.Message):
     help_text = ''
@@ -256,19 +285,111 @@ async def help(_, msg: types.Message):
 async def download_module(_, msg: types.Message):
     await app.edit_message_text(msg.chat.id, msg.id, 'Загрузка...')
 
-    try:
-        link = msg.text.split()[1]
-        version = None
+    if os.path.exists(os.path.join(os.path.dirname(__file__), 'plugins', 'temp')):
+        shutil.rmtree(os.path.join(os.path.dirname(__file__), 'plugins', 'temp'))
 
-        if len(msg.text.split()) == 3:
-            version = msg.text.split()[2]
-    except IndexError:
-        return await app.edit_message_text(msg.chat.id, msg.id, 'Вы не верно ввели параметры.Пример: /dwlmd {ссылка на зип из гит хаба}')
-    
-    if 'https://github.com/' not in link or not link.endswith('.zip'):
-        return await app.edit_message_text(msg.chat.id, msg.id, 'Вы не верно ввели параметры.Пример: /dwlmd {ссылка на зип из гит хаба}')
-    
-    file_name = link.split("/")[-1][:-4]
+    try:
+        json_manifest = None
+        is_old_format = False
+
+        try:
+            link = msg.text.split()[1]
+            version = None
+
+            if len(msg.text.split()) == 3:
+                version = msg.text.split()[2]
+        except IndexError:
+            return await app.edit_message_text(msg.chat.id, msg.id, 'Вы не верно ввели параметры.Пример: /dwlmd {ссылка на зип из гит хаба}')
+        
+        if 'https://github.com/' not in link or not link.endswith('.zip'):
+            return await app.edit_message_text(msg.chat.id, msg.id, 'Вы не верно ввели параметры.Пример: /dwlmd {ссылка на зип из гит хаба}')
+
+        async with aiohttp.ClientSession() as session:
+            link_path = link.split('/')
+
+            async with session.get('https://raw.githubusercontent.com/' + link_path[3] + '/' + link_path[4] + '/main/manifest.json') as file_manifest:
+                try:
+                    if file_manifest.status == 404:
+                        await app.edit_message_text(msg.chat.id, msg.id, 'Загрузка...(Устаревший формат плагина, могут быть сбои)')
+                        is_old_format = True
+                    else:
+                        manifest = await file_manifest.text('utf-8')
+
+                        json_manifest = json.loads(manifest)
+                        
+                        spec = SpecifierSet(json_manifest['mf_version'])
+
+                        if not spec.contains(__version.parse(this_version)):
+                            return await app.edit_message_text(msg.chat.id, msg.id, f'Плагин устарел и не поддерживает версию ModuFlex {this_version}')
+                        
+                        try:
+                            if json_manifest['name'] in Data.modules:
+                                with open(f'plugins/{json_manifest["name"]}/manifest.json') as f:
+                                    _manifest = json.load(f)
+                                
+                                current_version = __version.parse(_manifest['version'])
+                                new_version = __version.parse(json_manifest['version'])
+
+                                if not current_version < new_version:
+                                    return await app.edit_message_text(msg.chat.id, msg.id, f'Плагин не нуждается в обновлении.')
+                        except FileNotFoundError as e:
+                            logging.debug(traceback.format_exc())
+                except TypeError as e:
+                    logging.debug(traceback.format_exc())
+                    
+                    return await app.edit_message_text(msg.chat.id, msg.id, 'Ошибка скачивания плагина(См. в log.log)')
+            
+            if is_old_format:
+                return await old_download_module(_, msg, link_path=link_path, link=link)
+
+            file_name = link_path[-1][:-4]
+
+            os.makedirs('plugins/temp/module', exist_ok=True)
+            
+            with open(f'plugins/temp/{file_name}.zip', 'wb') as f:
+                async with session.get(link) as r:
+                    total_size = int(r.headers.get('Content-Length', 0))
+
+                    with alive_bar(total_size, title='Загрузка модуля', spinner=styles.SPINNERS['pulse'], theme='smooth') as bar:
+                        async for chunk in r.content.iter_chunked(512):
+                            f.write(chunk)
+
+                            bar(len(chunk))
+            
+            with zipfile.ZipFile(f'plugins/temp/{file_name}.zip', 'r') as zip_ref:
+                for member in zip_ref.namelist():
+                    abs_path = os.path.abspath(os.path.join('plugins/temp/module', member))
+                    if not abs_path.startswith(os.path.abspath('plugins/temp/module')):
+                        raise Exception("Обнаружена попытка path traversal!")
+                
+                zip_ref.extractall('plugins/temp/module')
+            
+            os.remove(f'plugins/temp/{file_name}.zip')
+
+            os.makedirs(f'plugins/{json_manifest["name"]}', exist_ok=True)
+
+            source_dir_name = next(
+                (item for item in os.listdir('plugins/temp/module/') if os.path.isdir(os.path.join('plugins/temp/module/', item))), 
+                ''
+            )
+
+            merge_directories(os.path.join('plugins/temp/module/' + source_dir_name), f'plugins/{json_manifest["name"]}')
+
+            shutil.rmtree(os.path.join(os.path.dirname(__file__), 'plugins', 'temp'))
+
+            handle_plugin(json_manifest["name"])
+    except Exception as e:
+        logger.debug(traceback.format_exc())
+        
+        return await app.edit_message_text(msg.chat.id, msg.id, 'Произошла ошибка(см. в файле log.log)')
+    finally:
+        if os.path.exists(os.path.join(os.path.dirname(__file__), 'plugins', 'temp')):
+            shutil.rmtree(os.path.join(os.path.dirname(__file__), 'plugins', 'temp'))
+
+    await app.edit_message_text(msg.chat.id, msg.id, f'Плагин успешно установлен!\n{json_manifest["name"]} v{json_manifest["version"]}\n{json_manifest["description"]}\n\nАвтор: {json_manifest["author"]}\nРепозиторий: {json_manifest["repository"]}', parse_mode=ParseMode.MARKDOWN)
+
+async def old_download_module(_, msg: types.Message, link_path, link):
+    file_name = link_path[-1][:-4]
     
     with open(f'plugins/{file_name}.zip', 'wb') as f:
         with requests.get(link, stream=True) as r:
@@ -356,9 +477,8 @@ async def update_script(_, msg: types.Message):
         await asyncio.sleep(0.5)
 
         for module in alive_it(version.__modules__, title='Установка модулей', spinner=styles.SPINNERS['pulse'], theme='smooth'):
-            if importlib.util.find_spec(module) is not None:
-                continue
-            subprocess.run(['pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if importlib.util.find_spec(module) is None:
+                subprocess.run(['pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         script_dir = os.path.dirname(os.path.abspath(__file__))
         
@@ -409,7 +529,7 @@ async def update_script(_, msg: types.Message):
 async def modu_flex_state(_, msg: types.Message):
     global send_message
     
-    await msg.edit_text(f"""```
+    await msg.edit_text(fr"""```
  ____    ____  ________  
 |_   \  /   _||_   __  |
   |   \/   |    | |_ \_|
@@ -436,12 +556,67 @@ async def send_update_function(app: Client, message: types.Message):
     with ThreadPoolExecutor(20) as executor:
         command_with_plugin_activate = False
         original_text = message.text
-        # Сделать определения для prefix, plugin_name, command_name
         prefix = None
         plugin_name = None
         command_name = None
 
         for pack_name in Data.cache:
+            for classes in Data.cache[pack_name]['classes'].values():
+                for _func in classes['methods'].values():
+                    chat_types = {
+                            "ChatType.PRIVATE": "private",
+                            "ChatType.CHANNEL": "channel",
+                            "ChatType.GROUP": "chat",
+                            "ChatType.SUPERGROUP": "chat",
+                            "ChatType.BOT": "bot"
+                        }
+                    
+                    if not (_func['type'] == chat_types[str(message.chat.type)] or (_func['type'] == 'all' or _func['type'] == 'default')):
+                        continue
+                    
+                    text = message.text
+
+                    if _func['prefixes'] is not None and text is not None:
+                        if prefix is None or plugin_name is None or command_name is None:
+                            for _prefix in _func['prefixes']:
+                                if text.startswith(_prefix):
+                                    prefix = _prefix
+                                    break
+                            else:
+                                continue
+                            
+                            if text[1:].startswith(pack_name):
+                                plugin_name = pack_name
+                                text = prefix + text[len(pack_name) + 2:]
+                            
+                            if text[1:].startswith(_func['command_name']):
+                                if len(Data.count_commands[_func['command_name']]) > 1:
+                                    try:
+                                        command_with_plugin = ''
+                                        for plugin in Data.count_commands[_func['command_name']]:
+                                            command_with_plugin += f'\n`{prefix}{plugin}.{_func["command_name"]}`'
+
+                                        await message.edit_text(f"Данная команда `{_func['command_name']}` существует в нескольких плагинах:{command_with_plugin}\n\nОтправьте один из вариантов.")
+                                        break
+                                    except:
+                                        continue
+                                else:
+                                    command_name = _func['command_name']
+                            else:
+                                continue
+                    
+                    if command_name is not None: message.text = text
+                    
+                    if _func['filters'] is not None and not await _func['filters'](app, message):
+                        continue
+                    
+                    if inspect.iscoroutinefunction(_func['method']):
+                        asyncio.create_task(getattr(classes['class'], _func['method'].__name__)(app, message))
+                        continue
+                    else:
+                        executor.submit(getattr(classes['class'], _func['method'].__name__), app, message)
+                        continue
+            
             for _func in Data.cache[pack_name]['funcs'].values():
                 chat_types = {
                         "ChatType.PRIVATE": "private",
@@ -456,7 +631,7 @@ async def send_update_function(app: Client, message: types.Message):
                 
                 text = message.text
 
-                if _func['prefixes'] is not None:
+                if _func['prefixes'] is not None and text is not None:
                     if prefix is None or plugin_name is None or command_name is None:
                         for _prefix in _func['prefixes']:
                             if text.startswith(_prefix):
@@ -531,7 +706,7 @@ async def schedule_check_for_update(app: Client):
         auto_check_for_update.pause()
 
 async def main(_app: Client, retries: int=None) -> int:
-    global stop, app, features_of_the_version
+    global stop, app, features_of_the_version, approute
     
     app = _app
 
@@ -584,20 +759,20 @@ async def main(_app: Client, retries: int=None) -> int:
         for key in Data.DEFAULT_MODUFLEX_CONFIG:
             if key not in Data.config['ModuFlex'] or type(Data.DEFAULT_MODUFLEX_CONFIG[key]) != type(Data.config['ModuFlex'].get(key, '')):
                 Data.config['ModuFlex'].update({key: copy.deepcopy(Data.DEFAULT_MODUFLEX_CONFIG[key])})
+        
+        try:
+            _date = datetime.strptime(Data.config['ModuFlex']['dwnlds_libs_date'], '%Y-%m-%d').date()
+        except:
+            _date = datetime(1970, 1, 1)
+
+            Data.config['ModuFlex']['dwnlds_libs_date'] = datetime.today().date().strftime('%Y-%m-%d')
+
+            Data.__save_config__()
+
+        if _date == datetime.today().date():
+            Data.skip_downloads = True
     
     Data.__save_config__()
-
-    try:
-        _date = datetime.strptime(Data.config['ModuFlex']['dwnlds_libs_date'], '%Y-%m-%d').date()
-    except:
-        _date = datetime(1970, 1, 1)
-
-        Data.config['ModuFlex']['dwnlds_libs_date'] = datetime.today().date().strftime('%Y-%m-%d')
-
-        Data.__save_config__()
-
-    if _date == datetime.today().date():
-        Data.skip_downloads = True
     
     if Data.check_for_update:
         auto_check_for_update.add_job(schedule_check_for_update, IntervalTrigger(minutes=10), (_app,))
@@ -637,7 +812,7 @@ async def main(_app: Client, retries: int=None) -> int:
     if send_msg_onstart_up:
         if there_is_update:
             await app.send_message('me', '👍Доступно новое обновление!', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=6327717992268301521)])
-        # Увы, юзерам такое отправлять нельзя(
+
         msg = await app.send_message('me', '👍Юзер бот запущен', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=random.choice([
             6204226842010847828,
             6325468301283558870,
@@ -660,6 +835,12 @@ async def main(_app: Client, retries: int=None) -> int:
 
     stop = ScriptState.started
 
+    def endless_dummy():
+        return asyncio.Future()
+
+    #NOTE: Experimental
+    if Data.experimental: server_task = asyncio.create_task(approute.run_task(port=1205, shutdown_trigger=endless_dummy))
+
     while stop == ScriptState.started:
         await asyncio.sleep(1)
 
@@ -671,5 +852,15 @@ async def main(_app: Client, retries: int=None) -> int:
                     pass
                 finally:
                     start = None
+
+    #NOTE: Experimental
+    if Data.experimental: server_task.cancel()
+
+    #NOTE: Experimental
+    if Data.experimental:
+        try:
+            await server_task
+        except asyncio.CancelledError:
+            pass
 
     return stop

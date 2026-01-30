@@ -716,7 +716,7 @@ async def hacker_animation(_, msg: types.Message):
             for idx in take_indexes:
                 hiden_text[idx] = random.choice(['$', '%', '*', '&'])
             
-            if tick == 16:
+            if tick == 12:
                 shows_text.update(take_indexes)
                 
                 for idx in take_indexes:

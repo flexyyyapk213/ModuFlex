@@ -2,23 +2,24 @@ from loads import func, MainDescription, FuncDescription, Description, set_modul
 
 #set_modules(['wikipedia', 'googletrans', 'gtts', 'speedtest', 'g4f'])
 
-from pyrogram import Client, filters
-from pyrogram.types import Message
-from pyrogram.errors import FloodWait
 import asyncio
-import random
-import wikipedia
-from googletrans import Translator, constants
+import io
 import json
+import random
+import re
+import sys
+import time
+import traceback
+
+import requests
+import speedtest
+import wikipedia
 from gtts import gTTS
 from io import BytesIO
-import speedtest
-import time
-import io
-import sys
-import traceback
-import re
-import requests
+from googletrans import Translator, constants
+from pyrogram import Client, filters
+from pyrogram.errors import FloodWait
+from pyrogram.types import Message
 
 wikipedia.set_lang('ru')
 
@@ -41,7 +42,7 @@ __description__ = Description(
     FuncDescription('excrypto', 'Показывает текущий указанный курс.Пример: .excrypto BTC/USDT 1', ' 💱 ', ('из(крипта)/в', 'кол-во'))
 )
 #__description__ описывает плагин и его функции
-# Теперь с версии 0.1.0 писать эту переменную можно в любом месте основного файла(т.е файла __init__)
+# Теперь с версии 0.1.0 писать эту переменную можно в любом месте
 
 try:
     with open('plugins/StartedPack/settings.json') as f:
