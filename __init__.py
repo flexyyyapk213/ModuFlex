@@ -1,19 +1,22 @@
 __name__ = 'ModuFlex'
-__version__ = '0.1.0b2'
+__version__ = '0.1.0b3'
 __author__ = 'flexyyy'
 __link__ = 'https://t.me/flexyyyapk'
 __gitHub__ = 'https://github.com/flexyyyapk213/ModuFlex'
 __news__ = """
 
-✨Обновление 0.1.0b2
+✨Обновление 0.1.0b3
 
 ```✦ Что нового?
-- Исправлена проблема с двойным импортом плагина.
-- Удалена команда .vimg(т.к она была встроена в .rqai) в плагине AIFuncs
-- Добавлен Web Interface (Эксперементальный.Подробнее в contribution.md).
-- Исправлен баг со скачиванием библиотек.
-- Мелкие изменения/улучшения.
+- Новые команды в StartedPack.
+- Новая команда /webi которая проверяет, есть ли у плагина страница на локальном сайте.
+- Чтобы скачать плагин, можно просто указать гит хаб репозиторий, без ссылки на зип файл.
+- Добавлена функция мультиаккаунтности: можно добавить несколько аккаунтов, где юзербот будет работать(Добавить аккаунты в странице ModuFlex.Экспериментальный).
+    - При этом была немного изменена структура в main.py
+- Если Экспериментальный режим включен, юзербот при старте покажет ссылку на локальный сайт.
+- Команда dwlmd и rmmd были переименованы в dwplg и rmplg, так как легко запоминаются и корректны по смыслу.
+- Мелкие исправления/улучшения
 ```
 """
 __python__ = '>=3.8'
-__modules__ = ['pyrogram', 'terminaltexteffects', 'requests', 'platform', 'pyfiglet', 'alive_progress', 'packaging', 'tgcrypto', 'apscheduler', 'quart', 'aiohttp']
+__modules__ = ['pyrogram', 'terminaltexteffects', 'requests', 'platform', 'pyfiglet', 'alive_progress', 'packaging', 'tgcrypto', 'apscheduler', 'quart', 'aiohttp', 'tzdata']

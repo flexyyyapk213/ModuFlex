@@ -12,17 +12,18 @@ import traceback
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from platform import python_version
 from typing import Dict
 import json
 import logging
+import sys
 
 import pyfiglet
+from quart import Quart
 import requests
 import aiohttp
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from packaging import version as __version
+from packaging import version
 from packaging.specifiers import SpecifierSet
 from pyrogram import Client, filters, enums, types
 from pyrogram.enums import ParseMode
@@ -33,7 +34,7 @@ from handling_plugins import handling_plugins as handling_plg, handle_plugin
 from loads import Data, ScriptState
 from terminaltexteffects.effects.effect_decrypt import Decrypt, DecryptConfig
 from terminaltexteffects.effects.effect_rain import Rain
-from utils import merge_directories, __find_command_name__, check_update
+from utils import merge_directories, __find_command_name__, check_update, get_config_data
 
 from __init__ import __modules__, __news__
 from __init__ import __version__ as this_version
@@ -42,41 +43,33 @@ from web import app as approute
 registers = {}
 
 try:
-    file = open("config.ini", "r").read()
+    with open("config.ini", "r") as cfg:
+        file = cfg.read()
+    
     api_id = re.search(r'api_id\s*=\s*(\d+)', file)
     api_hash = re.search(r'api_hash\s*=\s*[\'"](.*?)[\'"]', file)
-    send_msg_onstart_up = re.search(r'send_message\s*=\s*(true|false)', file)
-
-    if send_msg_onstart_up is not None:
-        send_msg_onstart_up = {'true': True, 'false': False}[send_msg_onstart_up.group(1)]
-    else:
-        send_msg_onstart_up = False
 
     phone_number = re.search(r'phone_number\s*=\s*(\d+)', file)
     password = re.search(r'password\s*=\s*[\'"](.*?)[\'"]', file)
 
-    ask_to_downloads = re.search(r'ask_downloads\s*=\s(true|false)', file)
+    __config__ = get_config_data()
 
-    if ask_to_downloads is not None: Data.ask_downloads = {'false': True, 'true': False}[ask_to_downloads.group(1)]
+    send_msg_onstart_up = __config__['send_message_on_startup']
 
-    one_download_libs = re.search(r'one_download_libs\s*=\s(true|false)', file)
+    if __config__['ask_to_downloads'] is not None: Data.ask_downloads = __config__['ask_to_downloads']
 
-    if one_download_libs is not None: Data.one_download_libs = {'true': True, 'false': False}[one_download_libs.group(1)]
+    if __config__['one_download_libs'] is not None: Data.one_download_libs = __config__['one_download_libs']
 
-    check_for_update = re.search(r'check_for_update\s*=\s(true|false)', file)
+    if __config__['check_for_update'] is not None: Data.check_for_update = __config__['check_for_update']
 
-    if check_for_update is not None: Data.check_for_update = {'true': True, 'false': False}[check_for_update.group(1)]
-
-    timeout_download_lib = re.search(r'timeout_download_lib\s*=\s(\d+)', file)
-
-    if timeout_download_lib is not None: Data.timeout_download_lib = int(timeout_download_lib.group(1)) if timeout_download_lib.group(1).isdigit() else 60
-except Exception as e:
-    pass
+    if __config__['timeout_download_lib'] is not None: Data.timeout_download_lib = __config__['timeout_download_lib']
+except FileNotFoundError:
+    print('Файл конфигурации не был обнаружен.Создайте в корне папке файл config.ini и введите свои данные.(Подробнее в contribution.md)')
+    sys.exit()
 
 there_is_update = False
 features_of_the_version = []
 stop = ScriptState.started
-auto_check_for_update = AsyncIOScheduler()
 logger = logging.getLogger(__name__)
 
 app = None
@@ -85,8 +78,8 @@ def check_updates():
     global there_is_update, features_of_the_version
     # Ссылка на официальный источник, так что вирусов не должно быть, нужно детально проверять ссылку(так же самое и в плагинах)
     link = 'https://raw.githubusercontent.com/flexyyyapk213/ModuFlex/main/__init__.py'
-    fresh_version = __version.parse(re.search(r'__version__ = \'(.*?)\'', requests.get(link, headers={'User-Agent': 'Mozilla/5.0'}).text).group(1))
-    version_now = __version.parse(this_version)
+    fresh_version = version.parse(re.search(r'__version__ = \'(.*?)\'', requests.get(link, headers={'User-Agent': 'Mozilla/5.0'}).text).group(1))
+    version_now = version.parse(this_version)
 
     if version_now.is_prerelease:
         features_of_the_version.append('this_is_prerelease')
@@ -115,8 +108,7 @@ def handling_updates():
             registers.update({update: {"funcs": {}, "classes": {}, "routes": {}}})
 
         for func_name, _func in updates[update]['funcs'].items():
-            #FIXME: Сделать вместо названий функции их айди
-            if registers[update]['funcs'].get(func_name, {}).get('func', False) == _func['func']:
+            if registers[update]['funcs'].get(func_name, False):
                 continue
             
             if _func['command_name'] is not None:
@@ -151,8 +143,7 @@ def handling_updates():
             registers[update]['routes'].update({"funcs": {}, "methods": {}})
 
             for key, value in updates[update]['routes']['funcs'].items():
-                #FIXME: Сделать вместо названий функции их айди
-                if registers[update]['routes']['funcs'].get(key, {}).get('func', False) == value['func']:
+                if registers[update]['routes']['funcs'].get(key, False):
                     continue
 
                 updates[update]['routes']['blueprint'].add_url_rule(view_func=value['func'], **value['parameters'])
@@ -160,8 +151,7 @@ def handling_updates():
                 registers[update]['routes']['funcs'].update({value['func'].__name__: {"func": value['func'], "parameters": value['parameters']}})
             
             for method_name, method in updates[update]['routes']['methods'].items():
-                #FIXME: Сделать вместо названий функции их айди
-                if registers[update]['routes']['methods'].get(method_name, {}).get('method', False) == method['method']:
+                if registers[update]['routes']['methods'].get(method_name, False):
                     continue
 
                 updates[update]['routes']['blueprint'].add_url_rule(view_func=getattr(updates[update]['classes'][method['class_id']]['class'], method['method'].__name__), **method['parameters'])
@@ -194,7 +184,7 @@ async def help(_, msg: types.Message):
         if pages > int(pages): pages = int(pages) + 1
         
         help_text += f'\n<b>Страница: 1/{pages}</b>' + '\n●Чтобы узнать о функции плагина, введите: /help {имя плагина}\n●Чтобы переходить на страницу, введите: для плагинов: /help 2, для команд: /help {имя плагина} 1'
-    elif len(msg.text.split()) == 2 and msg.text.split()[1].isdigit():
+    elif len(msg.text.split()) == 2 and msg.text.split()[1].isnumeric():
         help_text = 'Список плагинов:\n'
 
         try:
@@ -236,7 +226,7 @@ async def help(_, msg: types.Message):
         try:
             for i, (func_name, func) in enumerate(funcs.items()):
                 parameters = " ".join([" {" + parameter + "}" for parameter in func.parameters]) if func.parameters else ''
-                help_text += f'<i>{i})</i> ' + '<b>{' + f'{", ".join(sorted(func.prefixes, key=lambda x: PREFERRED_ORDER.index(x) if x in PREFERRED_ORDER else 999))}' + '}</b>' + f'<code>{func.command}</code>{parameters}{func.hyphen}{func.description}\n'
+                help_text += f'<i>{i})</i> ' + '<b>{' + f'{", ".join(sorted(func.prefixes or ["/"], key=lambda x: PREFERRED_ORDER.index(x) if x in PREFERRED_ORDER else 999))}' + '}</b>' + f'<code>{func.command}</code>{parameters}{func.hyphen}{func.description}\n'
 
                 if i == 25:
                     break
@@ -270,12 +260,11 @@ async def help(_, msg: types.Message):
                     continue
 
                 parameters = " ".join([" {" + parameter + "}" for parameter in func.parameters]) if func.parameters else ''
-                help_text += f'<i>{i})</i> ' + '<b>{' + f'{", ".join(sorted(func.prefixes, key=lambda x: PREFERRED_ORDER.index(x) if x in PREFERRED_ORDER else 999))}' + '}</b>' + f'<code>{func.command}</code>{parameters}{func.hyphen}{func.description}\n'
+                help_text += f'<i>{i})</i> ' + '<b>{' + f'{", ".join(sorted(func.prefixes or ["/"], key=lambda x: PREFERRED_ORDER.index(x) if x in PREFERRED_ORDER else 999))}' + '}</b>' + f'<code>{func.command}</code>{parameters}{func.hyphen}{func.description}\n'
 
                 if i*page == 25:
                     break
         except KeyError:
-            print(traceback.format_exc())
             help_text = 'Плагин не найден'
         
         help_text += f'\n<b>Страница: {page}/{int(pages)}' + '</b>\n●Чтобы узнать о функции плагина, введите: /help {имя плагина}\n●Чтобы переходить на страницу, введите: для плагинов: /help 2, для команд: /help {имя плагина} 1\n<b>{...}</b> - доступные префиксы'
@@ -297,15 +286,17 @@ async def download_module(_, msg: types.Message):
             version = None
 
             if len(msg.text.split()) == 3:
-                version = msg.text.split()[2]
+                version = ' '.join(msg.text.split()[2:])
         except IndexError:
-            return await app.edit_message_text(msg.chat.id, msg.id, 'Вы не верно ввели параметры.Пример: /dwlmd {ссылка на зип из гит хаба}')
+            return await app.edit_message_text(msg.chat.id, msg.id, 'Вы не верно ввели параметры.Пример: /dwlmd {ссылка на гит хаб репозиторий}')
         
-        if 'https://github.com/' not in link or not link.endswith('.zip'):
-            return await app.edit_message_text(msg.chat.id, msg.id, 'Вы не верно ввели параметры.Пример: /dwlmd {ссылка на зип из гит хаба}')
+        if 'https://github.com/' not in link:
+            return await app.edit_message_text(msg.chat.id, msg.id, 'Вы не верно ввели параметры.Пример: /dwlmd {ссылка на гит хаб репозиторий}')
 
         async with aiohttp.ClientSession() as session:
             link_path = link.split('/')
+            _author = link_path[2]
+            repo_name = link_path[3]
 
             async with session.get('https://raw.githubusercontent.com/' + link_path[3] + '/' + link_path[4] + '/main/manifest.json') as file_manifest:
                 try:
@@ -319,7 +310,7 @@ async def download_module(_, msg: types.Message):
                         
                         spec = SpecifierSet(json_manifest['mf_version'])
 
-                        if not spec.contains(__version.parse(this_version)):
+                        if not spec.contains(version.parse(this_version)):
                             return await app.edit_message_text(msg.chat.id, msg.id, f'Плагин устарел и не поддерживает версию ModuFlex {this_version}')
                         
                         try:
@@ -327,8 +318,8 @@ async def download_module(_, msg: types.Message):
                                 with open(f'plugins/{json_manifest["name"]}/manifest.json') as f:
                                     _manifest = json.load(f)
                                 
-                                current_version = __version.parse(_manifest['version'])
-                                new_version = __version.parse(json_manifest['version'])
+                                current_version = version.parse(_manifest['version'])
+                                new_version = version.parse(json_manifest['version'])
 
                                 if not current_version < new_version:
                                     return await app.edit_message_text(msg.chat.id, msg.id, f'Плагин не нуждается в обновлении.')
@@ -347,7 +338,7 @@ async def download_module(_, msg: types.Message):
             os.makedirs('plugins/temp/module', exist_ok=True)
             
             with open(f'plugins/temp/{file_name}.zip', 'wb') as f:
-                async with session.get(link) as r:
+                async with session.get('https://github.com/' + _author + '/' + repo_name + '/archive/refs/heads/main.zip') as r:
                     total_size = int(r.headers.get('Content-Length', 0))
 
                     with alive_bar(total_size, title='Загрузка модуля', spinner=styles.SPINNERS['pulse'], theme='smooth') as bar:
@@ -389,6 +380,10 @@ async def download_module(_, msg: types.Message):
     await app.edit_message_text(msg.chat.id, msg.id, f'Плагин успешно установлен!\n{json_manifest["name"]} v{json_manifest["version"]}\n{json_manifest["description"]}\n\nАвтор: {json_manifest["author"]}\nРепозиторий: {json_manifest["repository"]}', parse_mode=ParseMode.MARKDOWN)
 
 async def old_download_module(_, msg: types.Message, link_path, link):
+    """
+    Старый способ установки, крайне не рекомендуется скачивать плагины, которые не поддерживают версию >=0.1.0b2
+    Этот способ установки скоро будет вырезан.
+    """
     file_name = link_path[-1][:-4]
     
     with open(f'plugins/{file_name}.zip', 'wb') as f:
@@ -547,6 +542,7 @@ async def modu_flex_state(_, msg: types.Message):
     Обновлять библиотеки: {'При установке' if Data.one_download_libs else 'При запуске'}
     Проверка обновлении: {'Да' if Data.check_for_update else 'Нет'}
     Таймаут установки библ.: {Data.timeout_download_lib}с.
+    Экспериментальный режим: {'Да' if Data.experimental else 'Нет'}
     """)
 
 async def all_messages(app: Client, message: types.Message):
@@ -554,8 +550,6 @@ async def all_messages(app: Client, message: types.Message):
 
 async def send_update_function(app: Client, message: types.Message):
     with ThreadPoolExecutor(20) as executor:
-        command_with_plugin_activate = False
-        original_text = message.text
         prefix = None
         plugin_name = None
         command_name = None
@@ -610,6 +604,7 @@ async def send_update_function(app: Client, message: types.Message):
                     if _func['filters'] is not None and not await _func['filters'](app, message):
                         continue
                     
+                    print(_func['method'])
                     if inspect.iscoroutinefunction(_func['method']):
                         asyncio.create_task(getattr(classes['class'], _func['method'].__name__)(app, message))
                         continue
@@ -670,25 +665,13 @@ async def send_update_function(app: Client, message: types.Message):
                 else:
                     executor.submit(_func['func'], app, message)
 
-async def _stop(_, message: types.Message):
-    global stop
-    stop = ScriptState.exit
-
-    await message.edit_text('Скрипт завершён.')
-
-async def _restart(_, message: types.Message):
-    global stop
-    stop = ScriptState.restart
-
-    await message.edit_text('Перезапуск...')
-
-async def schedule_check_for_update(app: Client):
+async def schedule_check_for_update(app: Client, auto_check_for_update):
     global there_is_update
 
     _update = check_update(this_version)
 
     if there_is_update == _update[1]:
-        auto_check_for_update.pause()
+        auto_check_for_update.shutdown()
         return
 
     if _update[0]:
@@ -703,164 +686,281 @@ async def schedule_check_for_update(app: Client):
             await app.send_message('me', '👍Доступно новое обновление!', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=6327717992268301521)])
         
         there_is_update = _update[1]
-        auto_check_for_update.pause()
+        auto_check_for_update.shutdown()
 
-async def main(_app: Client, retries: int=None) -> int:
-    global stop, app, features_of_the_version, approute
+async def check_plugin_for_webinterface(_, message: types.Message):
+    try:
+        plugin_name = message.text.split()[1]
+    except IndexError:
+        return await message.edit_text('Вы не верно ввели параметры: /webi {ИмяПлагина}')
     
-    app = _app
-
-    app.add_handler(MessageHandler(help, filters.command('help', ['.', '/', '!']) & filters.me))
-    app.add_handler(MessageHandler(download_module, filters.command('dwlmd', ['.', '/', '!']) & filters.me))
-    app.add_handler(MessageHandler(remove_plugin, filters.command('rmmd', ['.', '/', '!']) & filters.me))
-    app.add_handler(MessageHandler(update_script, filters.command('update', ['.', '/', '!']) & filters.me))
-    app.add_handler(MessageHandler(modu_flex_state, filters.command('moduflex', ['.', '/', '!']) & filters.me))
-    app.add_handler(MessageHandler(_stop, filters.command('stop', ['.', '/', '!']) & filters.me))
-    app.add_handler(MessageHandler(_restart, filters.command('restart', ['.', '/', '!']) & filters.me))
+    if plugin_name not in Data.cache:
+        return await message.edit_text(f'Этот плагин `{plugin_name}` не существует.', parse_mode=ParseMode.MARKDOWN)
     
-    check_updates()
+    if not Data.cache[plugin_name]['routes']['funcs'] and not Data.cache[plugin_name]['routes']['methods']:
+        return await message.edit_text(f'У этого плагина `{plugin_name}` нету страницы на сайте.', parse_mode=ParseMode.MARKDOWN)
+    
+    return await message.edit_text(f'У данного плагина существует своя страница.\nhttp://127.0.0.1:1205/{plugin_name}/')
 
-    msgs = []
+class ModuFlex:
+    def __init__(self, app: Client, approute: Quart, is_basic: bool=False, **kwargs):
+        self.stop = ScriptState.started
+        self.app = app
+        self.auto_check_for_update = AsyncIOScheduler()
+        self.features_of_the_version = []
+        self.registers = {}
+        self.logger = logging.getLogger(__name__)
+        self.there_is_update = False
+        self.is_basic = is_basic
+        self.approute = approute
 
-    for feature in features_of_the_version:
-        if feature == 'you_are_tester':
-            msg = await app.send_message('me', '👍ТЫ ТЕСТЕР!', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=random.choice([
-                6325685291621287657,
-                6325462176660195024,
-                5370853232098681087,
-                6001555482865569587,
-                6046478147837235883,
-                6046554675564515809,
-                5195083971842547465,
-                5395448151865841306,
-                5395855254635960960,
-                5458602128375290972,
-                5197335548317933406,
-                5244673458083734407,
-                5240108114006516325,
-                5244946884291732268,
-                5377583918297916260,
-                5319006409830965724,
-                5318977191168452300
-            ]))])
+    async def run(self) -> ScriptState:
+        self.app.add_handler(MessageHandler(help, filters.command('help', ['.', '/', '!']) & filters.me))
+        self.app.add_handler(MessageHandler(download_module, filters.command('dwplg', ['.', '/', '!']) & filters.me))
+        self.app.add_handler(MessageHandler(remove_plugin, filters.command('rmplg', ['.', '/', '!']) & filters.me))
+        self.app.add_handler(MessageHandler(update_script, filters.command('update', ['.', '/', '!']) & filters.me))
+        self.app.add_handler(MessageHandler(modu_flex_state, filters.command('moduflex', ['.', '/', '!']) & filters.me))
+        self.app.add_handler(MessageHandler(self._stop, filters.command('stop', ['.', '/', '!']) & filters.me))
+        self.app.add_handler(MessageHandler(self._restart, filters.command('restart', ['.', '/', '!']) & filters.me))
+        self.app.add_handler(MessageHandler(check_plugin_for_webinterface, filters.command('webi', ['.', '/', '!']) & filters.me))
+        self.app.add_handler(MessageHandler(all_messages))
+
+        self.check_updates()
+
+        msgs = []
+
+        for feature in self.features_of_the_version:
+            if feature == 'you_are_tester':
+                msg = await self.app.send_message('me', '👍ТЫ ТЕСТЕР!', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=random.choice([
+                    6325685291621287657,
+                    6325462176660195024,
+                    5370853232098681087,
+                    6001555482865569587,
+                    6046478147837235883,
+                    6046554675564515809,
+                    5195083971842547465,
+                    5395448151865841306,
+                    5395855254635960960,
+                    5458602128375290972,
+                    5197335548317933406,
+                    5244673458083734407,
+                    5240108114006516325,
+                    5244946884291732268,
+                    5377583918297916260,
+                    5319006409830965724,
+                    5318977191168452300
+                ]))])
+            
+            if feature == 'this_is_prerelease':
+                await self.app.send_message('me', '👍Данная версия находится в бета релизе, возможны баги.', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=5352964886584367997)])
+            
+            try:
+                msgs.append(msg)
+            except:
+                pass
         
-        if feature == 'this_is_prerelease':
-            await app.send_message('me', '👍Данная версия находится в бета релизе, возможны баги.', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=5352964886584367997)])
+        if 'ModuFlex' not in Data.config:
+            Data.config.update({"ModuFlex": Data.DEFAULT_MODUFLEX_CONFIG})
+        else:
+            for key in Data.DEFAULT_MODUFLEX_CONFIG:
+                if key not in Data.config['ModuFlex'] or type(Data.DEFAULT_MODUFLEX_CONFIG[key]) != type(Data.config['ModuFlex'].get(key, '')):
+                    Data.config['ModuFlex'].update({key: copy.deepcopy(Data.DEFAULT_MODUFLEX_CONFIG[key])})
+            
+            try:
+                _date = datetime.strptime(Data.config['ModuFlex']['dwnlds_libs_date'], '%Y-%m-%d').date()
+            except:
+                _date = datetime(1970, 1, 1)
+
+                Data.config['ModuFlex']['dwnlds_libs_date'] = datetime.today().date().strftime('%Y-%m-%d')
+
+            if _date == datetime.today().date():
+                Data.skip_downloads = True
         
-        try:
-            msgs.append(msg)
-        except:
-            pass
-
-    
-    if 'ModuFlex' not in Data.config:
-        Data.config.update({"ModuFlex": Data.DEFAULT_MODUFLEX_CONFIG})
-    else:
-        for key in Data.DEFAULT_MODUFLEX_CONFIG:
-            if key not in Data.config['ModuFlex'] or type(Data.DEFAULT_MODUFLEX_CONFIG[key]) != type(Data.config['ModuFlex'].get(key, '')):
-                Data.config['ModuFlex'].update({key: copy.deepcopy(Data.DEFAULT_MODUFLEX_CONFIG[key])})
-        
-        try:
-            _date = datetime.strptime(Data.config['ModuFlex']['dwnlds_libs_date'], '%Y-%m-%d').date()
-        except:
-            _date = datetime(1970, 1, 1)
-
-            Data.config['ModuFlex']['dwnlds_libs_date'] = datetime.today().date().strftime('%Y-%m-%d')
-
-            Data.__save_config__()
-
-        if _date == datetime.today().date():
-            Data.skip_downloads = True
-    
-    Data.__save_config__()
-    
-    if Data.check_for_update:
-        auto_check_for_update.add_job(schedule_check_for_update, IntervalTrigger(minutes=10), (_app,))
-        auto_check_for_update.start()
-    
-    handling_plg()
-
-    handling_updates()
-
-    if 'libs_is_dwnld' not in Data.config['ModuFlex']:
-        Data.config['ModuFlex'].update({'libs_is_dwnld': True})
-
         Data.__save_config__()
-    else:
-        if not Data.config['ModuFlex']['libs_is_dwnld']:
-            Data.config['ModuFlex']['libs_is_dwnld'] = True
         
+        if Data.check_for_update:
+            self.auto_check_for_update.add_job(schedule_check_for_update, IntervalTrigger(minutes=10), (self.app, self.auto_check_for_update))
+            self.auto_check_for_update.start()
+        
+        if self.is_basic: handling_plg()
+
+        self.handling_updates()
+
+        if 'libs_is_dwnld' not in Data.config['ModuFlex']:
+            Data.config['ModuFlex'].update({'libs_is_dwnld': True})
+
             Data.__save_config__()
-
-    app.add_handler(MessageHandler(all_messages))
-
-    for _msg in msgs:
-        await _msg.delete()
-    
-    try:
-        del msgs
-    except:
-        pass
-
-    try:
-        del _msg
-    except:
-        pass
-
-    print(pyfiglet.figlet_format("ModuFlex", font=random.choice(pyfiglet.FigletFont.getFonts())))
-
-    if send_msg_onstart_up:
-        if there_is_update:
-            await app.send_message('me', '👍Доступно новое обновление!', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=6327717992268301521)])
-
-        msg = await app.send_message('me', '👍Юзер бот запущен', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=random.choice([
-            6204226842010847828,
-            6325468301283558870,
-            6203811806436132645,
-            6206350076273494131,
-            5384064740479747298,
-            5456188142006575553,
-            5456254812783910040,
-            5244469322583120930
-        ]))])
-    else:
-        effect = Rain('Скрипт запущен, подождите 5 секунд\nПриятного использования!')
-        with effect.terminal_output() as terminal:
-            for frame in effect:
-                terminal.print(frame)
-    
-    start = time.time()
-
-    if retries != None: retries -= 1
-
-    stop = ScriptState.started
-
-    def endless_dummy():
-        return asyncio.Future()
-
-    #NOTE: Experimental
-    if Data.experimental: server_task = asyncio.create_task(approute.run_task(port=1205, shutdown_trigger=endless_dummy))
-
-    while stop == ScriptState.started:
-        await asyncio.sleep(1)
-
-        if start is not None:
-            if time.time() - start > 15:
-                try:
-                    await msg.delete()
-                except:
-                    pass
-                finally:
-                    start = None
-
-    #NOTE: Experimental
-    if Data.experimental: server_task.cancel()
-
-    #NOTE: Experimental
-    if Data.experimental:
+        else:
+            if not Data.config['ModuFlex']['libs_is_dwnld']:
+                Data.config['ModuFlex']['libs_is_dwnld'] = True
+            
+                Data.__save_config__()
+        
+        for _msg in msgs:
+            await _msg.delete()
+        
         try:
-            await server_task
-        except asyncio.CancelledError:
+            del msgs
+        except:
             pass
 
-    return stop
+        try:
+            del _msg
+        except:
+            pass
+
+        print(pyfiglet.figlet_format("ModuFlex", font=random.choice(pyfiglet.FigletFont.getFonts())))
+
+        if send_msg_onstart_up:
+            if self.there_is_update:
+                await self.app.send_message('me', '👍Доступно новое обновление!', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=6327717992268301521)])
+
+            msg = await self.app.send_message('me', '👍Юзер бот запущен' + '.\nЛокальный сайт: http://127.0.0.1:1205' if Data.experimental else '', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=random.choice([
+                6204226842010847828,
+                6325468301283558870,
+                6203811806436132645,
+                6206350076273494131,
+                5384064740479747298,
+                5456188142006575553,
+                5456254812783910040,
+                5244469322583120930
+            ]))])
+        else:
+            effect = Rain('Скрипт запущен, подождите 5 секунд\nПриятного использования!')
+            with effect.terminal_output() as terminal:
+                for frame in effect:
+                    terminal.print(frame)
+
+        def endless_dummy():
+            return asyncio.Future()
+
+        #NOTE: Experimental
+        if Data.experimental and self.is_basic: server_task = asyncio.create_task(self.approute.run_task(port=1205, shutdown_trigger=endless_dummy))
+
+        start = time.time()
+
+        while self.stop == ScriptState.started:
+            await asyncio.sleep(1)
+
+            if start is not None:
+                if time.time() - start > 15 + 45 if Data.experimental else 0:
+                    try:
+                        await msg.delete()
+                    except:
+                        pass
+                    finally:
+                        start = None
+
+        self.auto_check_for_update.shutdown()
+        
+        #NOTE: Experimental
+        if Data.experimental and self.is_basic: server_task.cancel()
+
+        # #NOTE: Experimental
+        if Data.experimental and self.is_basic:
+            try:
+                await server_task
+            except asyncio.CancelledError:
+                pass
+
+        return self.stop
+    
+    def check_updates(self):
+        # Ссылка на официальный источник, так что вирусов не должно быть, нужно детально проверять ссылку(так же самое и в плагинах)
+        link = 'https://raw.githubusercontent.com/flexyyyapk213/ModuFlex/main/__init__.py'
+        fresh_version = version.parse(re.search(r'__version__ = \'(.*?)\'', requests.get(link, headers={'User-Agent': 'Mozilla/5.0'}).text).group(1))
+        version_now = version.parse(this_version)
+
+        if version_now.is_prerelease:
+            self.features_of_the_version.append('this_is_prerelease')
+        
+        if fresh_version > version_now:
+            if not send_msg_onstart_up:
+                DecryptConfig(1)
+
+                effect = Decrypt('Доступно новое обновление!Введите в чате /update для обновления.')
+                with effect.terminal_output() as terminal:
+                    for frame in effect:
+                        terminal.print(frame)
+            self.there_is_update = fresh_version
+        elif fresh_version < version_now:
+            self.features_of_the_version.append('you_are_tester')
+    
+    def handling_updates(self):
+        updates: Dict = Data.cache
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for func in Data.initializations:
+                executor.submit(func, app)
+
+        for update in updates:
+            if not self.registers.get(update, False):
+                self.registers.update({update: {"funcs": {}, "classes": {}, "routes": {}}})
+
+            for func_name, _func in updates[update]['funcs'].items():
+                if self.registers[update]['funcs'].get(func_name, False):
+                    continue
+                
+                if _func['command_name'] is not None and self.is_basic:
+                    if _func['command_name'] in Data.count_commands:
+                        Data.count_commands[_func['command_name']].append(update)
+                    else:
+                        Data.count_commands.update({_func['command_name']: [update]})
+                
+                self.registers[update]['funcs'].update({func_name: _func['func']})
+            
+            for class_id, _class in updates[update]['classes'].items():
+                if self.registers[update]['classes'].get(class_id, False):
+                    continue
+
+                self.registers[update]['classes'].update({class_id: {"class": _class['class'], "methods": {}}})
+
+                print(_class['methods'])
+                
+                for method_name, method in _class['methods'].items():
+                    print(self.registers[update]['classes'][class_id]['methods'].get(method_name, {}).get('method', False), method['method'])
+                    if self.registers[update]['classes'][class_id]['methods'].get(method_name, {}).get('method', False):
+                        continue
+
+                    print(method)
+                    
+                    if method['command_name'] is not None and self.is_basic:
+                        if method['command_name'] in Data.count_commands:
+                            Data.count_commands[method['command_name']].append(update)
+                        else:
+                            Data.count_commands.update({method['command_name']: [update]})
+                    
+                    self.registers[update]['classes'][class_id]['methods'].update({method_name: method['method']})
+            
+            #NOTE: Experimental
+            if updates[update]['routes'].get('blueprint', False) and Data.experimental and self.is_basic:
+                
+                self.registers[update]['routes'].update({"funcs": {}, "methods": {}})
+
+                for key, value in updates[update]['routes']['funcs'].items():
+                    if self.registers[update]['routes']['funcs'].get(key, False):
+                        continue
+
+                    updates[update]['routes']['blueprint'].add_url_rule(view_func=value['func'], **value['parameters'])
+
+                    self.registers[update]['routes']['funcs'].update({value['func'].__name__: {"func": value['func'], "parameters": value['parameters']}})
+                
+                for method_name, method in updates[update]['routes']['methods'].items():
+                    if registers[update]['routes']['methods'].get(method_name, False):
+                        continue
+
+                    updates[update]['routes']['blueprint'].add_url_rule(view_func=getattr(updates[update]['classes'][method['class_id']]['class'], method['method'].__name__), **method['parameters'])
+
+                    self.registers[update]['routes']['methods'].update({method['method'].__name__: {"method": method['method'], "class_id": method['class_id'], "parameters": method['parameters']}})
+                
+                if self.is_basic: self.approute.register_blueprint(updates[update]['routes']['blueprint'])
+    
+    async def _stop(self, _, message: types.Message):
+        self.stop = ScriptState.exit
+
+        await message.edit_text('Скрипт завершён.')
+
+    async def _restart(self, _, message: types.Message):
+        self.stop = ScriptState.restart
+
+        await message.edit_text('Перезапуск...')

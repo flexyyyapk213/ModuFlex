@@ -27,7 +27,8 @@ document.addEventListener('DOMContentLoaded', function (e) {
         'v0.1.0b2',
         'ЮзерБот',
         'MF',
-        'Синхронный'
+        'Синхронный',
+        'Мультиаккаунт'
     ]
     let currentText = getRandomInt(0, texts.length - 1)
     let currentIndex = 0
@@ -40,7 +41,6 @@ document.addEventListener('DOMContentLoaded', function (e) {
             'Content-Type': 'application/json',
         }
     }).then(response => { return response.json() }).then(data => {
-        console.log(data)
         let plugins = data.plugins
 
         let plgs = document.querySelector('.plugins')

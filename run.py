@@ -3,10 +3,10 @@ import json
 import logging
 import logging.handlers
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
+import re
 
 file_handler = logging.handlers.RotatingFileHandler(
     'script.log',
@@ -29,21 +29,21 @@ root_logger.addHandler(console_handler)
 venv_path = Path(sys.executable)
 
 try:
-    with open('config.ini') as f:
-        text = f.read()
-
-        use_botvenv = re.search(r'use_botvenv\s*=\s*(true|false)', text)
-
-        experimental = re.search(r'experimental\s*=\s*(true|false)', text)
-
-        if use_botvenv is not None: use_botvenv = {"true": True, "false": False}[use_botvenv.group(1)]
-        else: use_botvenv = True
-
-        if experimental is not None: experimental = {"true": True, "false": False}[experimental.group(1)]
-        else: experimental = False
+    with open('config.ini', encoding='utf-8') as file:
+        config = file.read()
 except FileNotFoundError:
     print('Файл конфигурации не был обнаружен.Создайте в корне папке файл config.ini и введите свои данные.(Подробнее в contribution.md)')
-    exit()
+    sys.exit()
+
+use_botvenv = re.search(r'use_botvenv\s*=\s*(true|false)', config)
+experimental = re.search(r'experimental\s*=\s*(true|false)', config)
+timeout_download_lib = re.search(r'timeout_download_lib\s*=\s*(\d+)', config)
+
+if use_botvenv is not None: use_botvenv = {'true': True, 'false': False}[use_botvenv.group(1)]
+if experimental is not None: experimental = {'true': True, 'false': False}[experimental.group(1)]
+if timeout_download_lib is not None: timeout_download_lib = int(timeout_download_lib.group(1))
+else: timeout_download_lib = 120
+
 
 # Run with botvenv
 if list(venv_path.parts)[-3] != 'botvenv' and use_botvenv:
@@ -97,32 +97,34 @@ except FileNotFoundError:
 
 if 'ModuFlex' in _config:
     if not _config['ModuFlex']['libs_is_dwnld']:
-        for module in alive_it(__modules__, title='Проверка модулей', spinner=styles.SPINNERS['pulse'], theme='smooth'):
+        for module in alive_it(__modules__, title='Проверка библиотек', spinner=styles.SPINNERS['pulse'], theme='smooth'):
             if importlib.util.find_spec(module) is None:
                 try:
-                    subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+                    subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout_download_lib)
                 except subprocess.TimeoutExpired:
-                    pass
+                    print(f'\033[31mНе удалось установить библиотеку {module}: Таймаут скачивания\033[0m')
 else:
-    for module in alive_it(__modules__, title='Проверка модулей', spinner=styles.SPINNERS['pulse'], theme='smooth'):
+    for module in alive_it(__modules__, title='Проверка библиотек', spinner=styles.SPINNERS['pulse'], theme='smooth'):
         if importlib.util.find_spec(module) is None:
             try:
-                subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+                subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout_download_lib)
             except subprocess.TimeoutExpired:
-                pass
+                print(f'\033[31mНе удалось установить библиотеку {module}: Таймаут скачивания\033[0m')
 
 import asyncio
 import gc
-import traceback
 from time import sleep
 
 from pyrogram.client import Client
 from sqlite3 import OperationalError
 
 from loads import ScriptState
-from main import main, api_id, api_hash, phone_number, password
+from main import api_id, api_hash, phone_number, password, ModuFlex
 
 from loads import Data
+from utils import get_config_data
+from web import app as approute
+import base64
 
 Data.experimental = experimental
 
@@ -136,10 +138,34 @@ if sys.platform == 'win32':
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
 
+def silence_peer_error(loop, context):
+    exc = context.get("exception")
+    if isinstance(exc, ValueError) and "Peer id invalid" in str(exc):
+        return
+    loop.default_exception_handler(context)
+
+async def multiply_run(app: Client, idx: int, is_basic: bool=False):
+    global approute
+    
+    account = ModuFlex(app, approute, is_basic)
+
+    loop = asyncio.get_event_loop()
+    loop.set_exception_handler(silence_peer_error)
+
+    async with app:
+        result = await account.run()
+    
+    if result == ScriptState.restart and not is_basic:
+        print(f'Аккаунт под номером {idx} перезапускает работу.')
+
+        return await multiply_run(app, idx, is_basic)
+    elif result == ScriptState.exit:
+        print(f'Аккаунт под номером {idx} завершил работу.')
+
+    return result
+
 async def start_bot() -> int:
     global retries
-
-    result = ScriptState.started
 
     app = Client(
             'db', api_id=api_id.group(1) if api_id is not None else None, api_hash=api_hash.group(1) if api_hash is not None else None,
@@ -147,20 +173,38 @@ async def start_bot() -> int:
             password=password.group(1) if password is not None else None, max_concurrent_transmissions=20, workers=8
             )
 
-    async with app:
-        try:
-            result = await main(app, retries)
-        except KeyboardInterrupt:
-            result = ScriptState.exit
-        except Exception:
-            traceback.print_exc()
+    result = asyncio.create_task(multiply_run(app, -1, True))
 
-            result = ScriptState.error
+    tasks = []
+    
+    #NOTE: Experimental
+    if Data.experimental:
+        accounts = []
+
+        additional_accounts = get_config_data()['additional_accounts']
+        if additional_accounts is None:
+            additional_accounts = []
+
+        accounts.extend([
+            Client(
+                base64.b64encode(str(acc['phone_number']).encode()).decode(), api_id=api_id.group(1) if api_id is not None else None, api_hash=api_hash.group(1) if api_hash is not None else None,
+                phone_number=acc['phone_number'], password=acc['password'], max_concurrent_transmissions=20,
+                workers=8) for acc in additional_accounts
+            ])
+        
+        tasks = [asyncio.create_task(multiply_run(acc, idx)) for idx, acc in enumerate(accounts)]
+    
+    await asyncio.gather(result, return_exceptions=True)
+
+    #NOTE: Experimental
+    if Data.experimental:
+        for task in tasks:
+            task.cancel()
     
     del app
     gc.collect()
 
-    return result
+    return result.result()
 
 while retries < max_retries:
     try:

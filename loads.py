@@ -8,14 +8,14 @@ import traceback
 import json
 import copy
 from enum import Enum
-from utils import __find_command__, __find_conflict__, __find_command_name__
+from utils import __find_command__, __find_command_name__
 from alive_progress import alive_it, styles
 import subprocess
 import sys
 from datetime import datetime
 from quart import Blueprint
 
-logging.basicConfig(filename='script.log', level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 __all__ = [
     'Data',
@@ -75,7 +75,7 @@ class MappingConfig(dict):
     def items(self):
         return Data.config[self.plugin_name].items()
 
-    def _save(self):
+    def _save(self) -> None:
         with open('configuration.json', 'w', encoding='utf-8') as f:
             json.dump(Data.config, f, ensure_ascii=False)
 
@@ -190,6 +190,10 @@ class Data:
         Returns:
             Union[MappingConfig, dict]: Управляющий MappingConfig или копия конфига.
         """
+        if 'plugins' in plugin_name:
+            _path_parts = os.path.normpath(plugin_name).split(os.sep)
+            plugin_name = _path_parts[_path_parts.index('plugins') + 1]
+        
         if plugin_name is not None:
             if plugin_name not in Data.config:
                 Data.config.update({plugin_name: {}})
@@ -203,7 +207,7 @@ class Data:
             
             path_parts = os.path.normpath(caller_filename).split(os.sep)
             pack_name = path_parts[path_parts.index('plugins') + 1]
-            
+
             if plugin_name == pack_name:
                 return MappingConfig(plugin_name)
             else:
@@ -236,8 +240,9 @@ class Module:
         for func in cls.__dict__.values():
             if hasattr(func, '_type'):
                 if func._type == 'route':
-                    Data.cache[pack_name]['routes']['methods'][func.__name__] = {"method": func, "class_id": id(_cls), "parameters": {"rule": "/" + func.parameters[0], **func.parameters[1]}}
+                    Data.cache[pack_name]['routes']['methods'][id(func)] = {"method": func, "class_id": id(_cls), "parameters": {"rule": "/" + func.parameters[0], **func.parameters[1]}}
                 else:
+                    print('func', func.__name__)
                     Data.cache[pack_name]['classes'][id(_cls)]['methods'].update({func.__name__: {"method": func, "filters": func.filters, "prefixes": func.prefixes, "command_name": func.command_name, "type": func._type}})
 
 class chatType(str, Enum):
@@ -277,6 +282,7 @@ class FuncDescription:
         `hyphen` (str): Символ-разделитель между командой и описанием (обычно ' - ').
         `prefixes` (Union[Tuple, List], optional): Допустимые префиксы для команды (пример: ['/', '!']).
         `parameters` (Union[Tuple, List], optional): Параметры команды (позиционные или именованные).
+        `parameters_style` (Union[Tuple, List, str]): Символы скобок параметров.
     """
     def __init__(
         self, 
@@ -284,16 +290,30 @@ class FuncDescription:
         description: str="Описание отсутствует.", 
         hyphen: str=' - ', 
         prefixes: Union[Tuple, List]=None, 
-        parameters: Union[Tuple, List]=None
+        parameters: Union[Tuple, List]=None,
+        parameters_style: Union[Tuple, List, str]=None
     ) -> None:
         if parameters is None:
             parameters = []
+        
+        if prefixes is None:
+            prefixes = ['/']
+        
+        if parameters_style is None:
+            parameters_style = ('{', '}')
+        
+        if len(parameters_style) == 1:
+            parameters_style = (parameters_style[0], parameters_style[0])
+        
+        if isinstance(parameters_style, str):
+            parameters_style = (parameters_style, parameters_style)
 
         self.command = command
         self.description = description
         self.hyphen = hyphen
         self.prefixes = prefixes
         self.parameters = parameters
+        self.parameters_style = parameters_style
 
 class Description:
     """
@@ -345,6 +365,7 @@ def func(_filters: filters, description: str='Описание отсутств�
             _func.command_name = command_name
             _func.pack_name = pack_name
             _func.filters = _filters
+            print('class', _func._type)
 
             del frame
             return _func
@@ -359,7 +380,7 @@ def func(_filters: filters, description: str='Описание отсутств�
             else:
                 Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
 
-            Data.cache[pack_name]['funcs'].update({_func.__name__: {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
+            Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
         
         del frame
     return reg
@@ -414,7 +435,7 @@ def private_func(_filters: filters=None, description: str='Описание от
             else:
                 Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
 
-            Data.cache[pack_name]['funcs'].update({_func.__name__: {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
+            Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
         
         del frame
     return reg
@@ -469,7 +490,7 @@ def chat_func(_filters: filters=None, description: str='Описание отс�
             else:
                 Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
 
-            Data.cache[pack_name]['funcs'].update({_func.__name__: {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
+            Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
         
         del frame
     return reg
@@ -524,7 +545,7 @@ def channel_func(_filters: filters=None, description: str='Описание от
             else:
                 Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
 
-            Data.cache[pack_name]['funcs'].update({_func.__name__: {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
+            Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
         
         del frame
     return reg
@@ -579,7 +600,7 @@ def all_func(_filters: filters=None, description: str='Описание отсу
             else:
                 Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
 
-            Data.cache[pack_name]['funcs'].update({_func.__name__: {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
+            Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
         
         del frame
     return reg
@@ -615,7 +636,7 @@ def route(rule: str, **options) -> Callable:
 
                 Data.cache[pack_name]['routes'].update({"blueprint": bp, "funcs": {}, "methods": {}})
             
-            Data.cache[pack_name]['routes']['funcs'][_func.__name__] = {"func": _func, "parameters": {"rule": "/" + rule, **options}}
+            Data.cache[pack_name]['routes']['funcs'][id(_func)] = {"func": _func, "parameters": {"rule": "/" + rule, **options}}
         
     return reg
 

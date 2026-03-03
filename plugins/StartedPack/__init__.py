@@ -17,7 +17,7 @@ import wikipedia
 from gtts import gTTS
 from io import BytesIO
 from googletrans import Translator, constants
-from pyrogram import Client, filters
+from pyrogram import Client, filters, enums
 from pyrogram.errors import FloodWait
 from pyrogram.types import Message
 
@@ -304,6 +304,22 @@ async def exchange_crypto(app: Client, msg: Message):
     price = float(price['price'])
 
     await app.send_message(msg.chat.id, f'Текущий курс: {price * count:.2f} {symbol.split("/")[1]} за {count} {symbol.split("/")[0]}')
+
+@func(filters.command('everyone', ['/', '.', '!']) & filters.group & filters.me, description='Призывает всех пользователей.')
+async def general_fe(client: Client, message: Message):
+    await message.delete()
+    
+    user_links = ''
+    count = 0
+
+    async for user in client.get_chat_members(message.chat.id):
+        if user.user.is_bot:
+            continue
+        user_links += f'{user.user.mention} '
+
+        count += 1
+
+    await client.send_message(message.chat.id, f'Призываю всех!({count}){user_links}', parse_mode=enums.ParseMode.HTML)
 
 @private_func()
 async def _private_func(client: Client, msg: Message):

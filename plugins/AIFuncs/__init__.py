@@ -12,7 +12,6 @@ from g4f.models import (
     OIVSCodeSer0501,
     OIVSCodeSer2,
     OperaAria,
-    Startnest,
     OpenAIFM,
     PollinationsAI,
     TeachAnything,
@@ -59,7 +58,7 @@ config = Data.get_config('AIFuncs')
 best_model = Fore.YELLOW + '👑Надёжные модели👑' + Fore.RESET + '\n' + Fore.RED + '[ ДЛЯ ТЕКСТА ]' + Fore.RESET + '\n' + '\n'.join(['gpt-4', 'gpt-4o', 'gpt-4o-mini', 'o1', 'o1-mini', 'o3-mini', 'o3-mini-high', 'o4-mini', 'o4-mini-high', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4.5', 'llama-3.1-8b', 'llama-3.1-70b', 'llama-3.1-405b', 'llama-3.2-3b', 'llama-3.2-11b', 'llama-3.2-90b', 'llama-3.3-70b', 'gemini-2.0', 'gemini-2.0-flash', 'gemini-2.0-flash-thinking', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemma-3-4b', 'gemma-3-12b', 'gemma-3-27b', 'gemma-3n-e4b', 'qwen-3-235b', 'qwen-3-32b', 'qwen-3-30b', 'qwen-3-14b', 'qwen-3-4b', 'qwen-3-1.7b', 'qwen-3-0.6b', 'qwq-32b', 'deepseek-v3', 'deepseek-r1', 'deepseek-r1-turbo', 'deepseek-r1-distill-llama-70b', 'deepseek-v3', 'deepseek-r1', 'deepseek-r1-turbo', 'grok-2', 'grok-3', 'grok-3-r1']) + '\n\n' + Fore.RED + '[ ДЛЯ ИЗОБРАЖЕНИЙ ]' + Fore.RESET + '\n' + '\n'.join(['dall-e-3', 'gpt-image', 'sdxl-turbo', 'sd-3.5-large', 'flux', 'flux-pro', 'flux-dev', 'flux-schnell', 'flux-redux', 'flux-depth', 'flux-canny', 'flux-kontext', 'flux-dev-lora', 'gemini-2.0-flash', 'gemini-2.0-flash-thinking', 'gemini-2.5-flash', 'gemini-2.5-pro'])
 
 def initialization(_):
-    if config['history_len'] >= 50 and config['warnings']:
+    if config['history_len'] >= 100 and config['warnings']:
         print(Fore.WHITE + "AIFuncs " + Fore.YELLOW + "| ⚠ Чем больше длинна истории, тем больше нагрузка для юзер бота !")
 
 class Conservation:
@@ -67,7 +66,7 @@ class Conservation:
         self.client = AsyncClient(provider=RetryProvider([
             Chatai, Cloudflare, Copilot, DeepInfra, HuggingSpace, Grok, 
             DeepseekAI_JanusPro7b, LambdaChat, OIVSCodeSer2, 
-            OIVSCodeSer0501, OperaAria, Startnest, OpenAIFM, 
+            OIVSCodeSer0501, OperaAria, OpenAIFM,
             PollinationsAI, TeachAnything, Together, WeWordle, Yqcloud
         ]))
         self.history = [{

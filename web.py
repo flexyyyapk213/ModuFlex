@@ -1,5 +1,9 @@
-from quart import Quart, render_template, Blueprint, jsonify
+from quart import Quart, render_template, jsonify
 from loads import Data
+import logging
+
+logging.getLogger('hypercorn.access').disabled = True
+logging.getLogger('quart.app').disabled = True
 
 app = Quart(__name__)
 
@@ -16,6 +20,3 @@ async def get_plugins():
             plugins.append(plugin)
 
     return jsonify({'plugins': plugins})
-
-if __name__ == "__main__":
-    app.run(debug=False, port=1205)
