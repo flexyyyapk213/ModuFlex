@@ -15,6 +15,7 @@ import zipfile
 from __init__ import __version__
 import os
 import shutil
+from distutils.dir_util import copy_tree
 
 version = input("Введите версию(без префикса v): ")
 
@@ -57,6 +58,10 @@ for file_name in alive_it(os.listdir('temp/'+dir_name), title='Перенос ф
 
     if os.path.isfile(f'temp/{dir_name}/{file_name}') and os.path.exists(f'{os.path.split(__file__)[0]}/{file_name}'):
         os.remove(f'{os.path.split(__file__)[0]}/{file_name}')
+
+    if os.path.isdir(f'temp/{dir_name}/{file_name}') and os.path.exists(f'{os.path.split(__file__)[0]}/{file_name}'):
+        shutil.copytree(f'temp/{dir_name}/{file_name}', os.path.join(script_dir, file_name), dirs_exist_ok=True)
+        continue
     
     if file_name == 'temp':
         continue
