@@ -15,7 +15,6 @@ import zipfile
 from __init__ import __version__
 import os
 import shutil
-from distutils.dir_util import copy_tree
 
 version = input("Введите версию(без префикса v): ")
 
@@ -70,5 +69,6 @@ for file_name in alive_it(os.listdir('temp/'+dir_name), title='Перенос ф
 
 os.remove(f'temp/v{version.replace(".", "-")}.zip')
 shutil.rmtree(f'temp/{dir_name}')
+
 
 print(f'Версия v{version} была успешно установлена.')
