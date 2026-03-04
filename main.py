@@ -448,10 +448,15 @@ async def update_script(_, msg: types.Message):
         # Ссылка на официальный источник, так что вирусов не должно быть, нужно детально проверять ссылку(так же самое и в плагинах)
         link = 'https://github.com/flexyyyapk213/ModuFlex/archive/refs/heads/main.zip'
 
-        with open(f'temp/main.zip', 'wb') as f:
-            with requests.get(link, stream=True) as r:
-                for chunk in alive_it(r.iter_content(chunk_size=512), title='Загрузка обновления', spinner=styles.SPINNERS['pulse'], theme='smooth'):
-                    f.write(chunk)
+        try:
+            with open(f'temp/main.zip', 'wb') as f:
+                with requests.get(link, stream=True) as r:
+                    for chunk in alive_it(r.iter_content(chunk_size=512), title='Загрузка обновления', spinner=styles.SPINNERS['pulse'], theme='smooth'):
+                        f.write(chunk)
+        except FileNotFoundError:
+            os.mkdir("temp")
+
+            return await update_script(_, msg)
         
         with zipfile.ZipFile(f'temp/main.zip', 'r') as zip_ref:
             zip_ref.extractall('temp')
