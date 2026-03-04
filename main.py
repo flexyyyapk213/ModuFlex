@@ -815,7 +815,7 @@ class ModuFlex:
             if self.there_is_update:
                 await self.app.send_message('me', '👍Доступно новое обновление!', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=6327717992268301521)])
 
-            msg = await self.app.send_message('me', '👍Юзер бот запущен' + '.\nЛокальный сайт: http://127.0.0.1:1205' if Data.experimental else '', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=random.choice([
+            msg = await self.app.send_message('me', '👍Юзер бот запущен' + ('.\nЛокальный сайт: http://127.0.0.1:1205' if Data.experimental else ''), entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=random.choice([
                 6204226842010847828,
                 6325468301283558870,
                 6203811806436132645,
