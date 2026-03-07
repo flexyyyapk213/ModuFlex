@@ -231,7 +231,6 @@ async def help(_, msg: types.Message):
                 if i == 25:
                     break
         except KeyError:
-            print(traceback.format_exc())
             help_text = 'Плагин не найден'
         
         help_text += f'\n<b>Страница: 1/{int(pages)}</b>' + '\n●Чтобы узнать о функции плагина, введите: /help {имя плагина}\n●Чтобы переходить на страницу, введите: для плагинов: /help 2, для команд: /help {имя плагина} 1\n<b>{...}</b> - доступные префиксы'
@@ -609,7 +608,6 @@ async def send_update_function(app: Client, message: types.Message):
                     if _func['filters'] is not None and not await _func['filters'](app, message):
                         continue
                     
-                    print(_func['method'])
                     if inspect.iscoroutinefunction(_func['method']):
                         asyncio.create_task(getattr(classes['class'], _func['method'].__name__)(app, message))
                         continue
@@ -919,15 +917,10 @@ class ModuFlex:
                     continue
 
                 self.registers[update]['classes'].update({class_id: {"class": _class['class'], "methods": {}}})
-
-                print(_class['methods'])
                 
                 for method_name, method in _class['methods'].items():
-                    print(self.registers[update]['classes'][class_id]['methods'].get(method_name, {}).get('method', False), method['method'])
                     if self.registers[update]['classes'][class_id]['methods'].get(method_name, {}).get('method', False):
                         continue
-
-                    print(method)
                     
                     if method['command_name'] is not None and self.is_basic:
                         if method['command_name'] in Data.count_commands:

@@ -8,6 +8,12 @@ import sys
 from pathlib import Path
 import re
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Go to the script root folder
+if os.getcwd() != script_dir:
+    os.chdir(script_dir)
+
 file_handler = logging.handlers.RotatingFileHandler(
     'script.log',
     maxBytes=1024 * 42,
@@ -43,7 +49,6 @@ if use_botvenv is not None: use_botvenv = {'true': True, 'false': False}[use_bot
 if experimental is not None: experimental = {'true': True, 'false': False}[experimental.group(1)]
 if timeout_download_lib is not None: timeout_download_lib = int(timeout_download_lib.group(1))
 else: timeout_download_lib = 120
-
 
 # Run with botvenv
 if list(venv_path.parts)[-3] != 'botvenv' and use_botvenv:

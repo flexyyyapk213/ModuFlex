@@ -242,7 +242,6 @@ class Module:
                 if func._type == 'route':
                     Data.cache[pack_name]['routes']['methods'][id(func)] = {"method": func, "class_id": id(_cls), "parameters": {"rule": "/" + func.parameters[0], **func.parameters[1]}}
                 else:
-                    print('func', func.__name__)
                     Data.cache[pack_name]['classes'][id(_cls)]['methods'].update({func.__name__: {"method": func, "filters": func.filters, "prefixes": func.prefixes, "command_name": func.command_name, "type": func._type}})
 
 class chatType(str, Enum):
@@ -365,7 +364,6 @@ def func(_filters: filters, description: str='Описание отсутств�
             _func.command_name = command_name
             _func.pack_name = pack_name
             _func.filters = _filters
-            print('class', _func._type)
 
             del frame
             return _func

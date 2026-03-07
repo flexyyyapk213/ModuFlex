@@ -9,7 +9,7 @@ from loads import Data, Description, download_library
 from packaging import version
 from packaging.specifiers import SpecifierSet
 
-logging.basicConfig(filename='script.log', level=logging.WARN)
+logger = logging.getLogger(__name__)
 
 def handling_plugins():
     folders = os.listdir('plugins')
@@ -68,7 +68,7 @@ def handling_plugins():
                             pass
         except Exception as e:
             traceback.print_exc()
-            logging.warning(traceback.format_exc())
+            logger.warning(traceback.format_exc())
             Data.failed_modules += 1
 
 def handle_plugin(pack_name: str):
@@ -119,7 +119,7 @@ def handle_plugin(pack_name: str):
                     pass
     except Exception as e:
         traceback.print_exc()
-        logging.warning(traceback.format_exc())
+        logger.warning(traceback.format_exc())
         Data.failed_modules += 1
 
 def update_command_information(description: Description, plugin_name: str):
