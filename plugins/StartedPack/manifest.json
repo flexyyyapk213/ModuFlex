@@ -5,7 +5,8 @@
     "description": "Краткое описание предназначения плагина или его нововведений (до ~4096 символов, поддерживается markdown формат Telegram).",
     "author": "flexyyy",
     "tags": [
-        "main"
+        "main",
+        "tools"
     ],
     "repository": "empty link"
 }

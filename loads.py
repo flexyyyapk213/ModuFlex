@@ -14,6 +14,9 @@ import subprocess
 import sys
 from datetime import datetime
 from quart import Blueprint
+from wasmexecutor import WasmExecutor
+import re
+import warnings
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +32,13 @@ __all__ = [
     'FuncDescription',
     'Description',
     'handleMethods',
-    'download_library'
+    'download_library',
+    'sandbox_exec',
+    'ChatType',
+    'route'
 ]
+
+PACKAGE_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9_\-\.]+$')
 
 class ScriptState(int, Enum):
     started = 0
@@ -44,70 +52,80 @@ class MappingConfig(dict):
 
     Изменения автоматически сохраняются в файл configuration.json.
     """
-
-    def __init__(self, plugin_name: str):
+    def __init__(self, plugin_name: str, keys: List[str]):
         self.plugin_name = plugin_name
+        self._keys = keys
+        self._dict = Data.config[plugin_name]
 
-    def __setitem__(self, key, value):
-        Data.config[self.plugin_name][key] = value
-
-        self._save()
-
-    def __getitem__(self, key):
-        return Data.config[self.plugin_name][key]
-
-    def __delitem__(self, key):
-        del Data.config[self.plugin_name][key]
+        for key in keys:
+            self._dict = self._dict[key]
+    
+    def __setitem__(self, key, value, /) -> None:
+        self._dict[key] = value
 
         self._save()
-
-    def update(self, _dict: Dict):
-        Data.config[self.plugin_name].update(_dict)
+    
+    def __getitem__(self, key, /) -> "MappingConfig":
+        if type(self._dict[key]) == dict:
+            return MappingConfig(self.plugin_name, self._keys + [key])
+        else:
+            return self._dict[key]
+    
+    def __delitem__(self, key, /) -> None:
+        del self._dict[key]
 
         self._save()
+    
+    def update(self, _dict: Dict) -> None:
+        self._dict.update(_dict)
 
+        self._save()
+    
     def keys(self):
-        return Data.config[self.plugin_name].keys()
-
+        return self._dict.keys()
+    
     def values(self):
-        return Data.config[self.plugin_name].values()
-
+        return self._dict.values()
+    
     def items(self):
-        return Data.config[self.plugin_name].items()
-
-    def _save(self) -> None:
-        with open('configuration.json', 'w', encoding='utf-8') as f:
-            json.dump(Data.config, f, ensure_ascii=False)
-
+        return self._dict.items()
+    
     def clear(self):
-        Data.config[self.plugin_name].clear()
+        self._dict.clear()
+
+        self._save()
+    
+    def popitem(self) -> Tuple:
+        _item = self._dict.popitem()
 
         self._save()
 
-    def popitem(self):
-        _item = Data.config[self.plugin_name].popitem()
+        return _item
+    
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._dict})"
+
+    def __len__(self) -> int:
+        return self._dict.__len__()
+    
+    def pop(self, key):
+        _item = self._dict.pop(key)
 
         self._save()
 
         return _item
 
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({Data.config[self.plugin_name]})"
-
-    def __len__(self) -> int:
-        return Data.config[self.plugin_name].__len__()
-
-    def pop(self, key):
-        Data.config[self.plugin_name].pop(key)
-
-        self._save()
-
     def copy(self):
-        return Data.config[self.plugin_name].copy()
+        return self._dict.copy()
     
     def get(self, key, default=None):
-        return Data.config[self.plugin_name].get(key, default)
-
+        return MappingConfig(self.plugin_name, key) if self._dict.get(key, default) != default else default
+    
+    def _save(self) -> None:
+        with open('configuration.json', 'w', encoding='utf-8') as f:
+            _cfg = json.dumps(Data.config, ensure_ascii=False)
+            f.write(_cfg)
+    
     def setdefault(self, _dict: Dict) -> None:
         """
         Гарантирует, что в конфиге есть все поля, что указаны в _dict.
@@ -116,11 +134,11 @@ class MappingConfig(dict):
         Args:
             _dict (Dict): Cловарь "ключ: значение" с дефолтными параметрами.
         """
-        if not Data.config[self.plugin_name]:
+        if not self._dict:
             self.update(_dict)
         else:
             for key in _dict:
-                if key not in Data.config[self.plugin_name] or type(_dict[key]) != type(Data.config[self.plugin_name].get(key, '')):
+                if key not in self._dict or (type(_dict[key]) != type(self._dict.get(key, '')) and type(self._dict.get(key, '')) != None):
                     self.update({key: copy.deepcopy(_dict[key])})
 
 class Data:
@@ -157,6 +175,9 @@ class Data:
 
     experimental = False
 
+    # Крайне рекомендуется использовать эту песочницу, для выполнения любого кода, вместо exec/eval
+    sandbox_executor = WasmExecutor()
+
     DEFAULT_MODUFLEX_CONFIG = {'dwnlds_libs_date': (datetime.now()).strftime('%Y-%m-%d'), 'libs_is_dwnld': False}
 
     try:
@@ -186,7 +207,7 @@ class Data:
         Если plugin_name соответствует вызывающему плагину, выдается управляющий MappingConfig для редактирования.
 
         Args:
-            plugin_name (Optional[str]): Имя плагина. Если не указано, будет возвращён весь конфиг (копия, нельзя изменять).
+            plugin_name (Optional[str]): Имя плагина(можно передать __file__ для удобства). Если не указано, будет возвращён весь конфиг (копия, нельзя изменять).
         Returns:
             Union[MappingConfig, dict]: Управляющий MappingConfig или копия конфига.
         """
@@ -209,7 +230,7 @@ class Data:
             pack_name = path_parts[path_parts.index('plugins') + 1]
 
             if plugin_name == pack_name:
-                return MappingConfig(plugin_name)
+                return MappingConfig(plugin_name, [])
             else:
                 return copy.deepcopy(Data.config[plugin_name])
         else:
@@ -218,7 +239,8 @@ class Data:
     @classmethod
     def __save_config__(cls):
         with open('configuration.json', 'w', encoding='utf-8') as f:
-            json.dump(Data.config, f, ensure_ascii=False)
+            _cfg = json.dumps(Data.config, ensure_ascii=False)
+            f.write(_cfg)
 
 class Module:
     def __init_subclass__(cls, **kwargs):
@@ -286,7 +308,7 @@ class FuncDescription:
     def __init__(
         self, 
         command: str, 
-        description: str="Описание отсутствует.", 
+        description: str=None, 
         hyphen: str=' - ', 
         prefixes: Union[Tuple, List]=None, 
         parameters: Union[Tuple, List]=None,
@@ -330,7 +352,7 @@ class Description:
         for func in args:
             self.funcs_description.update({func.command: func})
 
-def func(_filters: filters, description: str='Описание отсутствует.') -> Callable:
+def func(_filters: filters, description: str=None) -> Callable:
     """
     Декоратор для регистрации обработчика сообщений (команды).
 
@@ -358,6 +380,16 @@ def func(_filters: filters, description: str='Описание отсутств�
         except KeyError:
             command_name = None
         
+        if pack_name in Data.description:
+            if command_name is not None and prefixes is not None:
+                if command_name in Data.description[pack_name].funcs_description:
+                    Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
+                    Data.description[pack_name].funcs_description[command_name].description = description
+                else:
+                    Data.description[pack_name].funcs_description.update({command_name: FuncDescription(command_name, prefixes=prefixes, description=description)})
+        else:
+            Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
+        
         if caller_frame.f_code.co_name != '<module>':
             _func._type = 'default'
             _func.prefixes = prefixes
@@ -368,16 +400,6 @@ def func(_filters: filters, description: str='Описание отсутств�
             del frame
             return _func
         else:
-            if pack_name in Data.description:
-                if command_name is not None and prefixes is not None:
-                    if command_name in Data.description[pack_name].funcs_description:
-                        Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
-                        Data.description[pack_name].funcs_description[command_name].description = description
-                    else:
-                        Data.description[pack_name].funcs_description.update({command_name: FuncDescription(command_name, prefixes=prefixes, description=description)})
-            else:
-                Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
-
             Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
         
         del frame
@@ -395,6 +417,7 @@ def private_func(_filters: filters=None, description: str='Описание от
     Returns:
         Callable: Зарегистрированная функция-обработчик.
     """
+    warnings.warn('The "private_func" function is deprecated, use "func" instead.', DeprecationWarning, 2)
     def reg(_func: Callable) -> None:
         frame = inspect.currentframe()
         caller_frame = frame.f_back
@@ -413,6 +436,16 @@ def private_func(_filters: filters=None, description: str='Описание от
         except KeyError:
             command_name = None
         
+        if pack_name in Data.description:
+            if command_name is not None and prefixes is not None:
+                if command_name in Data.description[pack_name].funcs_description:
+                    Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
+                    Data.description[pack_name].funcs_description[command_name].description = description
+                else:
+                    Data.description[pack_name].funcs_description.update({command_name: FuncDescription(command_name, prefixes=prefixes, description=description)})
+        else:
+            Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
+        
         if caller_frame.f_code.co_name != '<module>':
             _func._type = 'private'
             _func.prefixes = prefixes
@@ -423,16 +456,6 @@ def private_func(_filters: filters=None, description: str='Описание от
             del frame
             return _func
         else:
-            if pack_name in Data.description:
-                if command_name is not None and prefixes is not None:
-                    if command_name in Data.description[pack_name].funcs_description:
-                        Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
-                        Data.description[pack_name].funcs_description[command_name].description = description
-                    else:
-                        Data.description[pack_name].funcs_description.update({command_name: FuncDescription(command_name, prefixes=prefixes, description=description)})
-            else:
-                Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
-
             Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
         
         del frame
@@ -450,6 +473,7 @@ def chat_func(_filters: filters=None, description: str='Описание отс�
     Returns:
         Callable: Зарегистрированная функция-обработчик.
     """
+    warnings.warn('The "chat_func" function is deprecated, use "func" instead.', DeprecationWarning, 2)
     def reg(_func: Callable) -> None:
         frame = inspect.currentframe()
         caller_frame = frame.f_back
@@ -468,6 +492,16 @@ def chat_func(_filters: filters=None, description: str='Описание отс�
         except KeyError:
             command_name = None
         
+        if pack_name in Data.description:
+            if command_name is not None and prefixes is not None:
+                if command_name in Data.description[pack_name].funcs_description:
+                    Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
+                    Data.description[pack_name].funcs_description[command_name].description = description
+                else:
+                    Data.description[pack_name].funcs_description.update({command_name: FuncDescription(command_name, prefixes=prefixes, description=description)})
+        else:
+            Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
+        
         if caller_frame.f_code.co_name != '<module>':
             _func._type = 'chat'
             _func.prefixes = prefixes
@@ -478,16 +512,6 @@ def chat_func(_filters: filters=None, description: str='Описание отс�
             del frame
             return _func
         else:
-            if pack_name in Data.description:
-                if command_name is not None and prefixes is not None:
-                    if command_name in Data.description[pack_name].funcs_description:
-                        Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
-                        Data.description[pack_name].funcs_description[command_name].description = description
-                    else:
-                        Data.description[pack_name].funcs_description.update({command_name: FuncDescription(command_name, prefixes=prefixes, description=description)})
-            else:
-                Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
-
             Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
         
         del frame
@@ -505,6 +529,7 @@ def channel_func(_filters: filters=None, description: str='Описание от
     Returns:
         Callable: Зарегистрированная функция-обработчик.
     """
+    warnings.warn('The "channel_func" function is deprecated, use "func" instead.', DeprecationWarning, 2)
     def reg(_func: Callable) -> None:
         frame = inspect.currentframe()
         caller_frame = frame.f_back
@@ -523,6 +548,16 @@ def channel_func(_filters: filters=None, description: str='Описание от
         except KeyError:
             command_name = None
         
+        if pack_name in Data.description:
+            if command_name is not None and prefixes is not None:
+                if command_name in Data.description[pack_name].funcs_description:
+                    Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
+                    Data.description[pack_name].funcs_description[command_name].description = description
+                else:
+                    Data.description[pack_name].funcs_description.update({command_name: FuncDescription(command_name, prefixes=prefixes, description=description)})
+        else:
+            Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
+        
         if caller_frame.f_code.co_name != '<module>':
             _func._type = 'channel'
             _func.prefixes = prefixes
@@ -533,16 +568,6 @@ def channel_func(_filters: filters=None, description: str='Описание от
             del frame
             return _func
         else:
-            if pack_name in Data.description:
-                if command_name is not None and prefixes is not None:
-                    if command_name in Data.description[pack_name].funcs_description:
-                        Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
-                        Data.description[pack_name].funcs_description[command_name].description = description
-                    else:
-                        Data.description[pack_name].funcs_description.update({command_name: FuncDescription(command_name, prefixes=prefixes, description=description)})
-            else:
-                Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
-
             Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
         
         del frame
@@ -560,6 +585,7 @@ def all_func(_filters: filters=None, description: str='Описание отсу
     Returns:
         Callable: Зарегистрированная функция-обработчик.
     """
+    warnings.warn('The "all_func" function is deprecated, use "func" instead.', DeprecationWarning, 2)
     def reg(_func: Callable) -> None:
         frame = inspect.currentframe()
         caller_frame = frame.f_back
@@ -578,6 +604,16 @@ def all_func(_filters: filters=None, description: str='Описание отсу
         except KeyError:
             command_name = None
         
+        if pack_name in Data.description:
+            if command_name is not None and prefixes is not None:
+                if command_name in Data.description[pack_name].funcs_description:
+                    Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
+                    Data.description[pack_name].funcs_description[command_name].description = description
+                else:
+                    Data.description[pack_name].funcs_description.update({command_name: FuncDescription(command_name, prefixes=prefixes, description=description)})
+        else:
+            Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
+
         if caller_frame.f_code.co_name != '<module>':
             _func._type = 'all'
             _func.prefixes = prefixes
@@ -588,16 +624,6 @@ def all_func(_filters: filters=None, description: str='Описание отсу
             del frame
             return _func
         else:
-            if pack_name in Data.description:
-                if command_name is not None and prefixes is not None:
-                    if command_name in Data.description[pack_name].funcs_description:
-                        Data.description[pack_name].funcs_description[command_name].prefixes = prefixes
-                        Data.description[pack_name].funcs_description[command_name].description = description
-                    else:
-                        Data.description[pack_name].funcs_description.update({command_name: FuncDescription(command_name, prefixes=prefixes, description=description)})
-            else:
-                Data.description.update({pack_name: Description(MainDescription("Описание отсутствует."), FuncDescription(command_name, prefixes=prefixes, description=description))})
-
             Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
         
         del frame
@@ -669,6 +695,10 @@ def download_library(libs: List[str]) -> None:
 
     if not dwnld_all:
         for _lib in libs:
+            if not PACKAGE_NAME_PATTERN.match(_lib):
+                logger.error(f'Не допустимая библиотека {_lib}')
+                continue
+            
             user_input = input(f"Устанавливать библиотеку {_lib} ([A]ll, [Y]es, [N]o): ")
             
             if user_input.lower() == 'a':
@@ -686,3 +716,17 @@ def download_library(libs: List[str]) -> None:
             subprocess.run([sys.executable, '-m', 'pip', 'install', '--upgrade', _library], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=Data.timeout_download_lib)
         except subprocess.TimeoutExpired:
             print(f'\033[41 Превышен лимит ожидания скачивания библиотеки {_library}. Возможно библиотека не поддерживается вашим устройством или плохое интернет соединение. \033[0m')
+
+def sandbox_exec(code: str, _globals: Optional[Dict]=None, _locals: Optional[Dict]=None):
+    """
+    Выполняет указанный Python-код в изолированной среде (песочнице WebAssembly).
+
+    Args:
+        `code` (str): Строка с исходным кодом Python для выполнения.
+        `_globals` (Optional[Dict]): Глобальные переменные для среды выполнения.
+        `_locals` (Optional[Dict]): Локальные переменные для среды выполнения.
+
+    Returns:
+        Result: Результат выполнения кода, включая вывод, ошибки и дополнительные параметры.
+    """
+    return Data.sandbox_executor.run_code(code, _globals, _locals)

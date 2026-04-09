@@ -1,4 +1,6 @@
 document.addEventListener('DOMContentLoaded', function (e) {
+    let current_version
+    
     let cursor = document.getElementById('typing-text')
     let texts = [
         'ModuFlex...',
@@ -24,11 +26,12 @@ document.addEventListener('DOMContentLoaded', function (e) {
         'Надёжность',
         'Главная страница',
         'AI',
-        'v0.1.0b2',
+        'v0.1.0b1',
         'ЮзерБот',
         'MF',
         'Синхронный',
-        'Мультиаккаунт'
+        'Мультиаккаунт',
+        current_version
     ]
     let currentText = getRandomInt(0, texts.length - 1)
     let currentIndex = 0

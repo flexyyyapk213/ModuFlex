@@ -18,7 +18,7 @@ __description__ = Description(
     FuncDescription('proc', 'Анимация загрузки в чате.Текст писать в двойных кавычках', parameters=('"загрузка"', '"результат"')),
     FuncDescription('love', 'Выводит анимацию с сердечками'),
     FuncDescription('t', 'Анимация печатания в чате', parameters=('текст',)),
-    FuncDescription('hacker', parameters=('текст',))
+    FuncDescription('hacker', 'Анимация появления, имитируя артефакты в тексте', parameters=('текст',))
 )
 
 @func(filters.command('spinsq', ['!', '/', '.']))

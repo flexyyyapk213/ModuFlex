@@ -66,7 +66,7 @@ def handling_plugins():
                             Data.initializations.pop()
                         except IndexError:
                             pass
-        except Exception as e:
+        except Exception:
             traceback.print_exc()
             logger.warning(traceback.format_exc())
             Data.failed_modules += 1
@@ -104,7 +104,7 @@ def handle_plugin(pack_name: str):
             Data.initializations.append(dict(md.__dict__.items())[pack_name].initialization)
         
         if os.path.exists(os.path.join('plugins', pack_name, 'manifest.json')):
-            with open(os.path.join('plugins', pack_name, 'manifest.json')) as f:
+            with open(os.path.join('plugins', pack_name, 'manifest.json', encoding='utf-8')) as f:
                 manifest = json.load(f)
             
             spec = SpecifierSet(manifest['mf_version'])
@@ -117,7 +117,7 @@ def handle_plugin(pack_name: str):
                     Data.initializations.pop()
                 except IndexError:
                     pass
-    except Exception as e:
+    except Exception:
         traceback.print_exc()
         logger.warning(traceback.format_exc())
         Data.failed_modules += 1
@@ -125,12 +125,13 @@ def handle_plugin(pack_name: str):
 def update_command_information(description: Description, plugin_name: str):
     if plugin_name not in Data.description:
         Data.description.update({plugin_name: description})
+        return
     
     Data.description[plugin_name].main_description.description = description.main_description.description
 
     for command in description.funcs_description.values():
         if command.command in Data.description[plugin_name].funcs_description:
-            Data.description[plugin_name].funcs_description[command.command].description = command.description
+            if command.description is not None: Data.description[plugin_name].funcs_description[command.command].description = command.description
             Data.description[plugin_name].funcs_description[command.command].hyphen = command.hyphen
             Data.description[plugin_name].funcs_description[command.command].parameters = command.parameters
         else:

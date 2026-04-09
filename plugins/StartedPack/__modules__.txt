@@ -2,5 +2,5 @@ wikipedia
 googletrans
 gtts
 speedtest-cli
-g4f
-microsandbox
+dicttoxml
+pillow

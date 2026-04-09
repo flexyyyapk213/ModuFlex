@@ -16,6 +16,7 @@ from typing import Dict
 import json
 import logging
 import sys
+from textwrap import dedent
 
 import pyfiglet
 from quart import Quart
@@ -226,7 +227,7 @@ async def help(_, msg: types.Message):
         try:
             for i, (func_name, func) in enumerate(funcs.items()):
                 parameters = " ".join([" {" + parameter + "}" for parameter in func.parameters]) if func.parameters else ''
-                help_text += f'<i>{i})</i> ' + '<b>{' + f'{", ".join(sorted(func.prefixes or ["/"], key=lambda x: PREFERRED_ORDER.index(x) if x in PREFERRED_ORDER else 999))}' + '}</b>' + f'<code>{func.command}</code>{parameters}{func.hyphen}{func.description}\n'
+                help_text += f'<i>{i})</i> ' + '<b>{' + f'{", ".join(sorted(func.prefixes or ["/"], key=lambda x: PREFERRED_ORDER.index(x) if x in PREFERRED_ORDER else 999))}' + '}</b>' + f'<code>{func.command}</code>{parameters}{func.hyphen}{func.description or "Описание отсутствует."}\n'
 
                 if i == 25:
                     break
@@ -259,7 +260,7 @@ async def help(_, msg: types.Message):
                     continue
 
                 parameters = " ".join([" {" + parameter + "}" for parameter in func.parameters]) if func.parameters else ''
-                help_text += f'<i>{i})</i> ' + '<b>{' + f'{", ".join(sorted(func.prefixes or ["/"], key=lambda x: PREFERRED_ORDER.index(x) if x in PREFERRED_ORDER else 999))}' + '}</b>' + f'<code>{func.command}</code>{parameters}{func.hyphen}{func.description}\n'
+                help_text += f'<i>{i})</i> ' + '<b>{' + f'{", ".join(sorted(func.prefixes or ["/"], key=lambda x: PREFERRED_ORDER.index(x) if x in PREFERRED_ORDER else 999))}' + '}</b>' + f'<code>{func.command}</code>{parameters}{func.hyphen}{func.description or "Описание отсутствует."}\n'
 
                 if i*page == 25:
                     break
@@ -270,8 +271,8 @@ async def help(_, msg: types.Message):
 
     await msg.edit_text(help_text)
 
-async def download_module(_, msg: types.Message):
-    await app.edit_message_text(msg.chat.id, msg.id, 'Загрузка...')
+async def download_module(app: Client, msg: types.Message):
+    await msg.edit_text('Загрузка...')
 
     if os.path.exists(os.path.join(os.path.dirname(__file__), 'plugins', 'temp')):
         shutil.rmtree(os.path.join(os.path.dirname(__file__), 'plugins', 'temp'))
@@ -282,10 +283,10 @@ async def download_module(_, msg: types.Message):
 
         try:
             link = msg.text.split()[1]
-            version = None
+            _version = None
 
             if len(msg.text.split()) == 3:
-                version = ' '.join(msg.text.split()[2:])
+                _version = ' '.join(msg.text.split()[2:])
         except IndexError:
             return await app.edit_message_text(msg.chat.id, msg.id, 'Вы не верно ввели параметры.Пример: /dwlmd {ссылка на гит хаб репозиторий}')
         
@@ -294,8 +295,8 @@ async def download_module(_, msg: types.Message):
 
         async with aiohttp.ClientSession() as session:
             link_path = link.split('/')
-            _author = link_path[2]
-            repo_name = link_path[3]
+            _author = link_path[3]
+            repo_name = link_path[4]
 
             async with session.get('https://raw.githubusercontent.com/' + link_path[3] + '/' + link_path[4] + '/main/manifest.json') as file_manifest:
                 try:
@@ -330,13 +331,11 @@ async def download_module(_, msg: types.Message):
                     return await app.edit_message_text(msg.chat.id, msg.id, 'Ошибка скачивания плагина(См. в log.log)')
             
             if is_old_format:
-                return await old_download_module(_, msg, link_path=link_path, link=link)
-
-            file_name = link_path[-1][:-4]
+                return await old_download_module(app, msg, link_path=link_path, link=link)
 
             os.makedirs('plugins/temp/module', exist_ok=True)
             
-            with open(f'plugins/temp/{file_name}.zip', 'wb') as f:
+            with open(f'plugins/temp/main.zip', 'wb') as f:
                 async with session.get('https://github.com/' + _author + '/' + repo_name + '/archive/refs/heads/main.zip') as r:
                     total_size = int(r.headers.get('Content-Length', 0))
 
@@ -346,7 +345,7 @@ async def download_module(_, msg: types.Message):
 
                             bar(len(chunk))
             
-            with zipfile.ZipFile(f'plugins/temp/{file_name}.zip', 'r') as zip_ref:
+            with zipfile.ZipFile(f'plugins/temp/main.zip', 'r') as zip_ref:
                 for member in zip_ref.namelist():
                     abs_path = os.path.abspath(os.path.join('plugins/temp/module', member))
                     if not abs_path.startswith(os.path.abspath('plugins/temp/module')):
@@ -354,7 +353,7 @@ async def download_module(_, msg: types.Message):
                 
                 zip_ref.extractall('plugins/temp/module')
             
-            os.remove(f'plugins/temp/{file_name}.zip')
+            os.remove(f'plugins/temp/main.zip')
 
             os.makedirs(f'plugins/{json_manifest["name"]}', exist_ok=True)
 
@@ -369,16 +368,16 @@ async def download_module(_, msg: types.Message):
 
             handle_plugin(json_manifest["name"])
     except Exception as e:
-        logger.debug(traceback.format_exc())
+        logger.error(traceback.format_exc())
         
-        return await app.edit_message_text(msg.chat.id, msg.id, 'Произошла ошибка(см. в файле log.log)')
+        return await msg.edit('Произошла ошибка(см. в файле log.log)')
     finally:
         if os.path.exists(os.path.join(os.path.dirname(__file__), 'plugins', 'temp')):
             shutil.rmtree(os.path.join(os.path.dirname(__file__), 'plugins', 'temp'))
 
-    await app.edit_message_text(msg.chat.id, msg.id, f'Плагин успешно установлен!\n{json_manifest["name"]} v{json_manifest["version"]}\n{json_manifest["description"]}\n\nАвтор: {json_manifest["author"]}\nРепозиторий: {json_manifest["repository"]}', parse_mode=ParseMode.MARKDOWN)
+    await msg.edit(f'Плагин успешно установлен!\n{json_manifest["name"]} v{json_manifest["version"]}\n{json_manifest["description"]}\n\nАвтор: {json_manifest["author"]}\nРепозиторий: {json_manifest["repository"]}', parse_mode=ParseMode.MARKDOWN)
 
-async def old_download_module(_, msg: types.Message, link_path, link):
+async def old_download_module(app: Client, msg: types.Message, link_path, link):
     """
     Старый способ установки, крайне не рекомендуется скачивать плагины, которые не поддерживают версию >=0.1.0b2
     Этот способ установки скоро будет вырезан.
@@ -409,7 +408,7 @@ async def old_download_module(_, msg: types.Message, link_path, link):
 
     await app.edit_message_text(msg.chat.id, msg.id, 'Плагин успешно установлен/обновлён')
 
-async def remove_plugin(_, msg: types.Message):
+async def remove_plugin(app: Client, msg: types.Message):
     global stop
 
     try:
@@ -434,7 +433,7 @@ async def remove_plugin(_, msg: types.Message):
 
     await app.edit_message_text(msg.chat.id, msg.id, 'Плагин успешно удалён.')
 
-async def update_script(_, msg: types.Message):
+async def update_script(app: Client, msg: types.Message):
     global stop
 
     await msg.edit('Проверка обновлений...')
@@ -455,21 +454,16 @@ async def update_script(_, msg: types.Message):
         except FileNotFoundError:
             os.mkdir("temp")
 
-            return await update_script(_, msg)
+            return await update_script(app, msg)
         
         with zipfile.ZipFile(f'temp/main.zip', 'r') as zip_ref:
             zip_ref.extractall('temp')
         
-        file_name = os.listdir('temp')
+        dir_name = zip_ref.namelist[0]
 
-        for fil_name in file_name:
-            if os.path.isdir('temp/'+fil_name):
-                file_name = fil_name
-                break
+        _file_name = os.listdir(f'temp/{dir_name}')
 
-        _file_name = os.listdir(f'temp/{file_name}')
-
-        spec = importlib.util.spec_from_file_location("__init__", f'temp/{file_name}/__init__.py')
+        spec = importlib.util.spec_from_file_location("__init__", f'temp/{dir_name}/__init__.py')
         version = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(version)
 
@@ -477,32 +471,17 @@ async def update_script(_, msg: types.Message):
 
         for module in alive_it(version.__modules__, title='Установка модулей', spinner=styles.SPINNERS['pulse'], theme='smooth'):
             if importlib.util.find_spec(module) is None:
-                subprocess.run(['pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-        script_dir = os.path.dirname(os.path.abspath(__file__))
+                subprocess.run([sys.executable, 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
         for fl_name in _file_name:
             try:
-                if fl_name == 'botvenv':
-                    continue
-                
-                if fl_name == 'config.ini':
-                    continue
-
-                if fl_name == 'plugins':
-                    shutil.copytree(f'temp/{file_name}/{fl_name}', os.path.join(script_dir, fl_name), dirs_exist_ok=True)
-                    continue
-
-                if os.path.isfile(f'temp/{file_name}/{fl_name}') and os.path.exists(f'{os.path.split(__file__)[0]}/{fl_name}'):
-                    os.remove(f'{os.path.split(__file__)[0]}/{fl_name}')
-                
-                if fl_name == '__pycache__':
-                    continue
-                
-                if fl_name == 'temp':
-                    continue
-                
-                shutil.move(f'temp/{file_name}/{fl_name}', f'{os.path.split(__file__)[0]}')
+                if os.path.exists(fl_name) and os.path.isfile(os.path.join('temp', dir_name, fl_name)):
+                    os.remove(fl_name)
+                    shutil.move(os.path.join('temp', dir_name, fl_name), '.')
+                elif os.path.exists(fl_name) and os.path.isdir(os.path.join('temp', dir_name, fl_name)):
+                    shutil.copytree(os.path.join('temp', dir_name, fl_name), fl_name, dirs_exist_ok=True)
+                else:
+                    shutil.move(os.path.join('temp', dir_name, fl_name), '.')
             except Exception as e:
                 print(e)
 
@@ -519,6 +498,8 @@ async def update_script(_, msg: types.Message):
             except Exception as e:
                 print(e)
 
+        Data.config['ModuFlex']['libs_is_dwnld'] = False
+        
         await msg.edit(f'Обновление успешно установлено\n{version.__news__}\nПерезапуск скрипта...', parse_mode=ParseMode.MARKDOWN)
 
         stop = ScriptState.restart
@@ -528,13 +509,19 @@ async def update_script(_, msg: types.Message):
 async def modu_flex_state(_, msg: types.Message):
     global send_message
     
-    await msg.edit_text(fr"""```
+    with open('script.log', encoding='utf-8') as log:
+        logs_text = ''.join(log.readlines()[-3:])
+    
+    await msg.edit_text(fr"""```moduflex
  ____    ____  ________  
 |_   \  /   _||_   __  |
   |   \/   |    | |_ \_|
   | |\  /| |    |  _|
  _| |_\/_| |_  _| |_
 |_____||_____||_____|
+```
+```Логи
+{logs_text}
 ```
 Текущая версия: {this_version}
 Обновление: {there_is_update if there_is_update else 'Нету'}
@@ -548,9 +535,6 @@ async def modu_flex_state(_, msg: types.Message):
     Таймаут установки библ.: {Data.timeout_download_lib}с.
     Экспериментальный режим: {'Да' if Data.experimental else 'Нет'}
     """)
-
-async def all_messages(app: Client, message: types.Message):
-    asyncio.gather(send_update_function(app, message))
 
 async def send_update_function(app: Client, message: types.Message):
     with ThreadPoolExecutor(20) as executor:
@@ -716,6 +700,7 @@ class ModuFlex:
         self.there_is_update = False
         self.is_basic = is_basic
         self.approute = approute
+        self.is_init = False
 
     async def run(self) -> ScriptState:
         self.app.add_handler(MessageHandler(help, filters.command('help', ['.', '/', '!']) & filters.me))
@@ -726,7 +711,7 @@ class ModuFlex:
         self.app.add_handler(MessageHandler(self._stop, filters.command('stop', ['.', '/', '!']) & filters.me))
         self.app.add_handler(MessageHandler(self._restart, filters.command('restart', ['.', '/', '!']) & filters.me))
         self.app.add_handler(MessageHandler(check_plugin_for_webinterface, filters.command('webi', ['.', '/', '!']) & filters.me))
-        self.app.add_handler(MessageHandler(all_messages))
+        self.app.add_handler(MessageHandler(self.all_messages))
 
         self.check_updates()
 
@@ -814,6 +799,12 @@ class ModuFlex:
 
         print(pyfiglet.figlet_format("ModuFlex", font=random.choice(pyfiglet.FigletFont.getFonts())))
 
+        def endless_dummy():
+            return asyncio.Future()
+
+        #NOTE: Experimental
+        if Data.experimental and self.is_basic: server_task = asyncio.create_task(self.approute.run_task(port=1205, shutdown_trigger=endless_dummy))
+
         if send_msg_onstart_up:
             if self.there_is_update:
                 await self.app.send_message('me', '👍Доступно новое обновление!', entities=[types.MessageEntity(type=enums.MessageEntityType.CUSTOM_EMOJI, offset=0, length=2, custom_emoji_id=6327717992268301521)])
@@ -834,13 +825,9 @@ class ModuFlex:
                 for frame in effect:
                     terminal.print(frame)
 
-        def endless_dummy():
-            return asyncio.Future()
-
-        #NOTE: Experimental
-        if Data.experimental and self.is_basic: server_task = asyncio.create_task(self.approute.run_task(port=1205, shutdown_trigger=endless_dummy))
-
         start = time.time()
+
+        self.is_init = True
 
         while self.stop == ScriptState.started:
             await asyncio.sleep(1)
@@ -894,7 +881,7 @@ class ModuFlex:
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             for func in Data.initializations:
-                executor.submit(func, app)
+                executor.submit(func, self.app)
 
         for update in updates:
             if not self.registers.get(update, False):
@@ -916,6 +903,8 @@ class ModuFlex:
                 if self.registers[update]['classes'].get(class_id, False):
                     continue
 
+                _class['class'](self.app)
+                
                 self.registers[update]['classes'].update({class_id: {"class": _class['class'], "methods": {}}})
                 
                 for method_name, method in _class['methods'].items():
@@ -962,3 +951,7 @@ class ModuFlex:
         self.stop = ScriptState.restart
 
         await message.edit_text('Перезапуск...')
+    
+    async def all_messages(self, app: Client, message: types.Message):
+        if not self.is_init: return
+        asyncio.gather(send_update_function(app, message))

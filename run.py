@@ -7,6 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 import re
+import traceback
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -16,7 +17,7 @@ if os.getcwd() != script_dir:
 
 file_handler = logging.handlers.RotatingFileHandler(
     'script.log',
-    maxBytes=1024 * 42,
+    maxBytes=1024 * 1024,
     backupCount=3,
     encoding='utf-8'
 )
@@ -76,11 +77,11 @@ if list(venv_path.parts)[-3] != 'botvenv' and use_botvenv:
 
         sys.exit()
     except PermissionError:
-        pass
+        print('\033[33mНе удалось создать botvenv.Дальнейшая работа будет производится без виртуального окружения.\033[0m')
     except FileNotFoundError:
         pass
     except NameError:
-        pass
+        print('\033[33mНе удалось создать botvenv.Дальнейшая работа будет производится без виртуального окружения.\033[0m')
     except Exception as e:
         print(e)
 
@@ -94,7 +95,7 @@ from alive_progress import alive_it, styles
 try:
     with open('configuration.json') as f:
         _config = json.load(f)
-except FileNotFoundError:
+except (FileNotFoundError, json.JSONDecodeError, ValueError):
     with open('configuration.json', 'w') as f:
         json.dump({}, f, ensure_ascii=False)
 
@@ -115,6 +116,71 @@ else:
                 subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout_download_lib)
             except subprocess.TimeoutExpired:
                 print(f'\033[31mНе удалось установить библиотеку {module}: Таймаут скачивания\033[0m')
+
+import platform
+import shutil
+
+def is_node_installed():
+    return shutil.which("node") is not None
+
+if 'node_modules' not in os.listdir():
+    system = platform.system().lower()
+    if not is_node_installed():
+        try:
+            if system == "windows":
+                if shutil.which("choco"):
+                    subprocess.run(["choco", "install", "-y", "nodejs"], check=True)
+                elif shutil.which("winget"):
+                    subprocess.run(["winget", "install", "--id", "OpenJS.NodeJS", "-e", "--silent"], check=True)
+                else:
+                    print("Установщик Chocolatey или winget не найден. Пожалуйста, установите Node.js вручную: https://nodejs.org/")
+            elif system == "linux":
+                if shutil.which('pkg'):
+                    subprocess.run(["pkg", "update", "&&", "pkg", "upgrade"], check=True)
+                    subprocess.run(["pkg", "install", "nodejs-lts"], check=True)
+                elif shutil.which("apt"):
+                    subprocess.run(["sudo", "apt", "update"], check=True)
+                    subprocess.run(["sudo", "apt", "install", "-y", "curl"], check=True)
+                    subprocess.run(
+                        ["curl", "-fsSL", "https://deb.nodesource.com/setup_lts.x", "|", "sudo", "-E", "bash", "-"],
+                        check=True, shell=True
+                    )
+                    subprocess.run(["sudo", "apt", "install", "-y", "nodejs"], check=True)
+                    
+                elif shutil.which("pacman"):
+                    if shutil.which("yay"):
+                        subprocess.run(["yay", "-Sy", "--noconfirm", "nodejs-lts-gallium", "npm"], check=True)
+                    else:
+                        subprocess.run(["sudo", "pacman", "-Sy", "--noconfirm", "nodejs-lts-gallium", "npm"], check=True)
+                elif shutil.which("dnf"):
+                    subprocess.run(["sudo", "dnf", "module", "reset", "nodejs", "-y"], check=True)
+                    subprocess.run(["sudo", "dnf", "module", "enable", "nodejs:lts", "-y"], check=True)
+                    subprocess.run(["sudo", "dnf", "install", "-y", "nodejs", "npm"], check=True)
+                elif shutil.which("yum"):
+                    subprocess.run(["sudo", "curl", "-fsSL", "https://rpm.nodesource.com/setup_lts.x", "|", "sudo", "bash", "-"], check=True, shell=True)
+                    subprocess.run(["sudo", "yum", "install", "-y", "nodejs", "npm"], check=True)
+                else:
+                    print("Не удалось определить ваш пакетный менеджер. Установите Node.js вручную: https://nodejs.org/")
+            elif system == "darwin":
+                if shutil.which("brew"):
+                    subprocess.run(["brew", "install", "node"], check=True)
+                else:
+                    print("Homebrew не найден. Установите Homebrew или скачайте Node.js вручную: https://nodejs.org/")
+            else:
+                print(f"Ваша операционная система не поддерживается автоустановщиком. Пожалуйста, установите Node.js вручную: https://nodejs.org/")
+        except Exception as e:
+            print(f"\033[31mОшибка при установке Node.js: {e}\033[0m")
+
+        if not is_node_installed():
+            print('\033[31mNode.js не установлен. Пожалуйста, установите его вручную с https://nodejs.org/\033[0m')
+            sys.exit(1)
+
+    try:
+        subprocess.run(["npm", "init", "-y"], shell=(system == 'windows'))
+        subprocess.run(["npm", "install", "pyodide", "-y"], shell=(system == 'windows'))
+    except Exception as e:
+        print(f"\033[31mОшибка при установки библиотек на Node.js: {e}\033[0m")
+        sys.exit(1)
 
 import asyncio
 import gc
@@ -145,7 +211,7 @@ asyncio.set_event_loop(loop)
 
 def silence_peer_error(loop, context):
     exc = context.get("exception")
-    if isinstance(exc, ValueError) and "Peer id invalid" in str(exc):
+    if isinstance(exc, ValueError) and "peer id" in str(exc).lower():
         return
     loop.default_exception_handler(context)
 
@@ -157,8 +223,13 @@ async def multiply_run(app: Client, idx: int, is_basic: bool=False):
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(silence_peer_error)
 
-    async with app:
-        result = await account.run()
+    result = ScriptState.exit
+
+    try:
+        async with app:
+            result = await account.run()
+    except Exception:
+        root_logger.error(traceback.format_exc())
     
     if result == ScriptState.restart and not is_basic:
         print(f'Аккаунт под номером {idx} перезапускает работу.')
@@ -231,7 +302,6 @@ while retries < max_retries:
     except OperationalError as e:
         print(e, '.Возможно скрипт работает где то ещё.')
         sleep(5)
-        continue
     except Exception as e:
         print(e)
         continue

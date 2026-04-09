@@ -44,7 +44,8 @@ __description__ = Description(
     FuncDescription('turn_websrch', 'Включения/выключения технологии web search для ИИ(Может не работать).', prefixes=['.', '!', '/']),
     FuncDescription('aihtry', 'ИИ читает историю чата.', prefixes=['.', '!', '/'], parameters=[r'\-\-c={число} и/или текст']),
     FuncDescription('style', 'Изменяет стиль общения ИИ.По умолчанию он обычный, если нечего не указывать, стиль изменится на по умолчанию.', prefixes=['.', '!', '/'], parameters=['не обязательно(стиль)']),
-    FuncDescription('aifk', 'Улучшенная версия afk, где ИИ заменяет вас, пока вы куда то отошли.', prefixes=['.', '!', '/'])
+    FuncDescription('aifk', 'Улучшенная версия afk, где ИИ заменяет вас, пока вы куда то отошли.', prefixes=['.', '!', '/']),
+    FuncDescription('sysprompt', 'Устанавливает системный промпт.', parameters=('промпт(можно не указывать, тогда очиститься)'))
 )
 
 init(True)

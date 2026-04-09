@@ -1,0 +1,7 @@
+{
+    "box": [64, 350, 512, 100],
+    "font_path": "arial.ttf",
+    "start_size": 42,
+    "fill": "black",
+    "align": "center"
+}
