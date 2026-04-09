@@ -19,4 +19,4 @@ __news__ = """✨Обновление 0.1.0
 ```
 """
 __python__ = '>=3.8'
-__modules__ = ['pyrogram', 'terminaltexteffects', 'requests', 'platform', 'pyfiglet', 'alive_progress', 'packaging', 'tgcrypto', 'apscheduler', 'quart', 'aiohttp', 'tzdata', 'nodeenv']
+__modules__ = ['pyrogram', 'terminaltexteffects', 'requests', 'platform', 'pyfiglet', 'alive_progress', 'packaging', 'tgcrypto', 'apscheduler', 'quart', 'aiohttp', 'tzdata']
