@@ -1,0 +1,309 @@
+import importlib.util
+import json
+import logging
+import logging.handlers
+import os
+import subprocess
+import sys
+from pathlib import Path
+import re
+import traceback
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Go to the script root folder
+if os.getcwd() != script_dir:
+    os.chdir(script_dir)
+
+file_handler = logging.handlers.RotatingFileHandler(
+    'script.log',
+    maxBytes=1024 * 1024,
+    backupCount=3,
+    encoding='utf-8'
+)
+
+console_handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+console_handler.setFormatter(formatter)
+
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.WARNING)
+
+root_logger.addHandler(file_handler)
+root_logger.addHandler(console_handler)
+
+venv_path = Path(sys.executable)
+
+try:
+    with open('config.ini', encoding='utf-8') as file:
+        config = file.read()
+except FileNotFoundError:
+    print('Файл конфигурации не был обнаружен.Создайте в корне папке файл config.ini и введите свои данные.(Подробнее в contribution.md)')
+    sys.exit()
+
+use_botvenv = re.search(r'use_botvenv\s*=\s*(true|false)', config)
+experimental = re.search(r'experimental\s*=\s*(true|false)', config)
+timeout_download_lib = re.search(r'timeout_download_lib\s*=\s*(\d+)', config)
+
+if use_botvenv is not None: use_botvenv = {'true': True, 'false': False}[use_botvenv.group(1)]
+if experimental is not None: experimental = {'true': True, 'false': False}[experimental.group(1)]
+if timeout_download_lib is not None: timeout_download_lib = int(timeout_download_lib.group(1))
+else: timeout_download_lib = 120
+
+# Run with botvenv
+if list(venv_path.parts)[-3] != 'botvenv' and use_botvenv:
+    path_to_bot = Path(__file__)
+
+    folders = [entry.name for entry in os.scandir(path_to_bot.parents[0]) if entry.is_dir()]
+
+    if 'botvenv' not in folders:
+        if importlib.util.find_spec('venv') is None:
+            subprocess.run([sys.executable, '-m', 'pip', 'install', 'venv'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        subprocess.run([sys.executable, '-m', 'venv', 'botvenv'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    path_to_botvenv = Path(__file__)
+
+    if sys.platform == 'win32':
+        if (path_to_botvenv.parents[0] / 'botvenv' / 'Scripts').exists() and (path_to_botvenv.parents[0] / 'botvenv' / 'Scripts' / 'python.exe').is_file():
+            python_exc = [str(path_to_bot.parents[0] / 'botvenv' / 'Scripts' / 'python.exe'), str(path_to_bot.parents[0] / 'run.py')]
+    else:
+        if (path_to_botvenv.parents[0] / 'botvenv' / 'bin').exists() and (path_to_botvenv.parents[0] / 'botvenv' / 'bin' / 'python').is_file():
+            python_exc = [str(path_to_bot.parents[0] / 'botvenv' / 'bin' / 'python'), str(path_to_bot.parents[0] / 'run.py')]
+
+    try:
+        subprocess.run(python_exc, check=True)
+
+        sys.exit()
+    except PermissionError:
+        print('\033[33mНе удалось создать botvenv.Дальнейшая работа будет производится без виртуального окружения.\033[0m')
+    except FileNotFoundError:
+        pass
+    except NameError:
+        print('\033[33mНе удалось создать botvenv.Дальнейшая работа будет производится без виртуального окружения.\033[0m')
+    except Exception as e:
+        print(e)
+
+from __init__ import __modules__
+
+if importlib.util.find_spec('alive_progress') is None:
+    subprocess.run([sys.executable, '-m', 'pip', 'install', 'alive-progress'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+from alive_progress import alive_it, styles
+
+try:
+    with open('configuration.json') as f:
+        _config = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError, ValueError):
+    with open('configuration.json', 'w') as f:
+        json.dump({}, f, ensure_ascii=False)
+
+        _config = {}
+
+if 'ModuFlex' in _config:
+    if not _config['ModuFlex']['libs_is_dwnld']:
+        for module in alive_it(__modules__, title='Проверка библиотек', spinner=styles.SPINNERS['pulse'], theme='smooth'):
+            if importlib.util.find_spec(module) is None:
+                try:
+                    subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout_download_lib)
+                except subprocess.TimeoutExpired:
+                    print(f'\033[31mНе удалось установить библиотеку {module}: Таймаут скачивания\033[0m')
+else:
+    for module in alive_it(__modules__, title='Проверка библиотек', spinner=styles.SPINNERS['pulse'], theme='smooth'):
+        if importlib.util.find_spec(module) is None:
+            try:
+                subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout_download_lib)
+            except subprocess.TimeoutExpired:
+                print(f'\033[31mНе удалось установить библиотеку {module}: Таймаут скачивания\033[0m')
+
+import platform
+import shutil
+
+def is_node_installed():
+    return shutil.which("node") is not None
+
+if 'node_modules' not in os.listdir():
+    system = platform.system().lower()
+    if not is_node_installed():
+        try:
+            if system == "windows":
+                if shutil.which("choco"):
+                    subprocess.run(["choco", "install", "-y", "nodejs"], check=True)
+                elif shutil.which("winget"):
+                    subprocess.run(["winget", "install", "--id", "OpenJS.NodeJS", "-e", "--silent"], check=True)
+                else:
+                    print("Установщик Chocolatey или winget не найден. Пожалуйста, установите Node.js вручную: https://nodejs.org/")
+            elif system == "linux":
+                if shutil.which('pkg'):
+                    subprocess.run(["pkg", "update", "&&", "pkg", "upgrade"], check=True)
+                    subprocess.run(["pkg", "install", "nodejs-lts"], check=True)
+                elif shutil.which("apt"):
+                    subprocess.run(["sudo", "apt", "update"], check=True)
+                    subprocess.run(["sudo", "apt", "install", "-y", "curl"], check=True)
+                    subprocess.run(
+                        ["curl", "-fsSL", "https://deb.nodesource.com/setup_lts.x", "|", "sudo", "-E", "bash", "-"],
+                        check=True, shell=True
+                    )
+                    subprocess.run(["sudo", "apt", "install", "-y", "nodejs"], check=True)
+                    
+                elif shutil.which("pacman"):
+                    if shutil.which("yay"):
+                        subprocess.run(["yay", "-Sy", "--noconfirm", "nodejs-lts-gallium", "npm"], check=True)
+                    else:
+                        subprocess.run(["sudo", "pacman", "-Sy", "--noconfirm", "nodejs-lts-gallium", "npm"], check=True)
+                elif shutil.which("dnf"):
+                    subprocess.run(["sudo", "dnf", "module", "reset", "nodejs", "-y"], check=True)
+                    subprocess.run(["sudo", "dnf", "module", "enable", "nodejs:lts", "-y"], check=True)
+                    subprocess.run(["sudo", "dnf", "install", "-y", "nodejs", "npm"], check=True)
+                elif shutil.which("yum"):
+                    subprocess.run(["sudo", "curl", "-fsSL", "https://rpm.nodesource.com/setup_lts.x", "|", "sudo", "bash", "-"], check=True, shell=True)
+                    subprocess.run(["sudo", "yum", "install", "-y", "nodejs", "npm"], check=True)
+                else:
+                    print("Не удалось определить ваш пакетный менеджер. Установите Node.js вручную: https://nodejs.org/")
+            elif system == "darwin":
+                if shutil.which("brew"):
+                    subprocess.run(["brew", "install", "node"], check=True)
+                else:
+                    print("Homebrew не найден. Установите Homebrew или скачайте Node.js вручную: https://nodejs.org/")
+            else:
+                print(f"Ваша операционная система не поддерживается автоустановщиком. Пожалуйста, установите Node.js вручную: https://nodejs.org/")
+        except Exception as e:
+            print(f"\033[31mОшибка при установке Node.js: {e}\033[0m")
+
+        if not is_node_installed():
+            print('\033[31mNode.js не установлен. Пожалуйста, установите его вручную с https://nodejs.org/\033[0m')
+            sys.exit(1)
+
+    try:
+        subprocess.run(["npm", "init", "-y"], shell=(system == 'windows'))
+        subprocess.run(["npm", "install", "pyodide", "-y"], shell=(system == 'windows'))
+    except Exception as e:
+        print(f"\033[31mОшибка при установки библиотек на Node.js: {e}\033[0m")
+        sys.exit(1)
+
+import asyncio
+import gc
+from time import sleep
+
+from pyrogram.client import Client
+from sqlite3 import OperationalError
+
+from loads import ScriptState
+from main import api_id, api_hash, phone_number, password, ModuFlex
+
+from loads import Data
+from utils import get_config_data
+from web import app as approute
+import base64
+
+Data.experimental = experimental
+
+max_retries = 10
+retry_delay = 15
+retries = 0
+
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
+
+def silence_peer_error(loop, context):
+    exc = context.get("exception")
+    if isinstance(exc, ValueError) and "peer id" in str(exc).lower():
+        return
+    loop.default_exception_handler(context)
+
+async def multiply_run(app: Client, idx: int, is_basic: bool=False):
+    global approute
+    
+    account = ModuFlex(app, approute, is_basic)
+
+    loop = asyncio.get_event_loop()
+    loop.set_exception_handler(silence_peer_error)
+
+    result = ScriptState.exit
+
+    try:
+        async with app:
+            result = await account.run()
+    except Exception:
+        root_logger.error(traceback.format_exc())
+    
+    if result == ScriptState.restart and not is_basic:
+        print(f'Аккаунт под номером {idx} перезапускает работу.')
+
+        return await multiply_run(app, idx, is_basic)
+    elif result == ScriptState.exit:
+        print(f'Аккаунт под номером {idx} завершил работу.')
+
+    return result
+
+async def start_bot() -> int:
+    global retries
+
+    app = Client(
+            'db', api_id=api_id.group(1) if api_id is not None else None, api_hash=api_hash.group(1) if api_hash is not None else None,
+            phone_number=phone_number.group(1) if phone_number is not None else None,
+            password=password.group(1) if password is not None else None, max_concurrent_transmissions=20, workers=8
+            )
+
+    result = asyncio.create_task(multiply_run(app, -1, True))
+
+    tasks = []
+    
+    #NOTE: Experimental
+    if Data.experimental:
+        accounts = []
+
+        additional_accounts = get_config_data()['additional_accounts']
+        if additional_accounts is None:
+            additional_accounts = []
+
+        accounts.extend([
+            Client(
+                base64.b64encode(str(acc['phone_number']).encode()).decode(), api_id=api_id.group(1) if api_id is not None else None, api_hash=api_hash.group(1) if api_hash is not None else None,
+                phone_number=acc['phone_number'], password=acc['password'], max_concurrent_transmissions=20,
+                workers=8) for acc in additional_accounts
+            ])
+        
+        tasks = [asyncio.create_task(multiply_run(acc, idx)) for idx, acc in enumerate(accounts)]
+    
+    await asyncio.gather(result, return_exceptions=True)
+
+    #NOTE: Experimental
+    if Data.experimental:
+        for task in tasks:
+            task.cancel()
+    
+    del app
+    gc.collect()
+
+    return result.result()
+
+while retries < max_retries:
+    try:
+        result = asyncio.run(start_bot())
+
+        if result == ScriptState.exit:
+            sys.exit()
+        elif result == ScriptState.restart:
+            subprocess.run([sys.executable, *sys.argv])
+            sys.exit()
+    except KeyboardInterrupt:
+        print('<3')
+        break
+    except (ConnectionError, TimeoutError) as e:
+        print(e)
+        print('Ошибка с соединением...')
+        sleep(retry_delay)
+        continue
+    except OperationalError as e:
+        print(e, '.Возможно скрипт работает где то ещё.')
+        sleep(5)
+    except Exception as e:
+        print(e)
+        continue
+
+    retries += 1

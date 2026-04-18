@@ -1,0 +1,7 @@
+{
+    "box": [64, 342, 400, 100],
+    "font_path": "times.ttf",
+    "start_size": 42,
+    "fill": "white",
+    "align": "center"
+}

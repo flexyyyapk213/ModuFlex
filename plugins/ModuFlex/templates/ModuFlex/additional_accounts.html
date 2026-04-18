@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Additional Accounts</title>
+    <link rel="stylesheet" href="{{ url_for('ModuFlex.static', filename='additional_accounts.css') }}">
+    <script src="{{ url_for('ModuFlex.static', filename='additional_accounts.js') }}" defer></script>
+<body>
+    <h1 id="title">Дополнительные аккаунты</h1>
+    <div id="create-account">
+        <input id="phone" class="input-glass" placeholder="Введите номер телефона(без +)...">
+        <input id="password" class="input-glass" placeholder="Введите пароль...">
+        <button id="create-additional-account" class="btn-glass">Создать</button>
+        <button id="back" class="btn-glass">Назад</button>
+    </div>
+    <div id="accounts"></div>
+</body>
+</html>

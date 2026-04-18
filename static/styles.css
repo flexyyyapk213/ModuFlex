@@ -1,0 +1,91 @@
+body {
+    background-color: #1e1e1e;
+}
+
+.title-moduflex {
+    display: grid;
+    justify-content: center;
+}
+
+.change-anim-text {
+    display: flex;
+    margin-top: 0;
+    align-items: center;
+    font-size: 2rem;
+    font-family: sans-serif;
+    font-weight: bold;
+    background: linear-gradient(to left, #42c5f5, #c2e5f2);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    min-height: 1.4rem;
+}
+
+#cursor {
+    display: block;
+    width: 4px;
+    height: 1rem;
+    background-color: #cdcdcd;
+    animation: blink 0.7s steps(1) infinite;
+    margin-left: 3px;
+}
+
+@keyframes blink {
+    50% {
+        opacity: 0;
+    }
+}
+
+#title {
+    margin-bottom: 0;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1;
+    background: linear-gradient(to left, #42c5f5, #c2e5f2);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+#typing-text {
+    font-size: 1rem;
+    font-family: sans-serif;
+    font-weight: bold;
+    background: linear-gradient(to left, #42c5f5, #c2e5f2);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.btn-glass {
+    padding: 5px 10px;
+    min-width: 10rem;
+    font-size: 16px;
+    font-weight: 500;
+    color: #000000;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 6px;
+    backdrop-filter: blur(5px);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-glass:hover {
+    background: rgba(255, 255, 255, 0.4);
+    border-color: #42c5f5;
+    color: #42c5f5;
+    transform: scale(1.05);
+}
+
+.btn-glass:active {
+    border-color: firebrick;
+    color: firebrick;
+    background: rgba(255, 255, 255, 0.542);
+}
+
+.plugins {
+    display: grid;
+    justify-content: center;
+    gap: 1px;
+}

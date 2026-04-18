@@ -1,0 +1,12 @@
+config.ini
+configuration.json
+script.log
+*.session
+*.session-journal
+__pycache__/
+temp/
+botvenv/
+node_modules/
+generated_media/
+package-lock.json
+package.json

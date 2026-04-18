@@ -1,0 +1,6 @@
+wikipedia
+googletrans
+gtts
+speedtest-cli
+dicttoxml
+pillow
