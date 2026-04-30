@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIFuncs Page</title>
+    <link rel="stylesheet" href="{{ url_for('AIFuncs.static', filename='styles.css') }}">
+    
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
+
+    <script src="{{ url_for('AIFuncs.static', filename='app.js') }}"></script>
+</head>
+<body>
+    <div id="interface">
+        <div id="history"></div>
+        <div id="input-panel">
+            <textarea id="input-ai" placeholder="Написать ИИ..."></textarea>
+            <button id="send-message"></button>
+        </div>
+    </div>
+</body>
+</html>

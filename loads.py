@@ -38,7 +38,7 @@ __all__ = [
     'route'
 ]
 
-PACKAGE_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9_\-\.]+$')
+PACKAGE_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9_\-\.\=]+$')
 
 class ScriptState(int, Enum):
     started = 0
@@ -138,7 +138,7 @@ class MappingConfig(dict):
             self.update(_dict)
         else:
             for key in _dict:
-                if key not in self._dict or (type(_dict[key]) != type(self._dict.get(key, '')) and type(self._dict.get(key, '')) != None):
+                if key not in _dict:
                     self.update({key: copy.deepcopy(_dict[key])})
 
 class Data:
@@ -660,7 +660,7 @@ def route(rule: str, **options) -> Callable:
 
                 Data.cache[pack_name]['routes'].update({"blueprint": bp, "funcs": {}, "methods": {}})
             
-            Data.cache[pack_name]['routes']['funcs'][id(_func)] = {"func": _func, "parameters": {"rule": "/" + rule, **options}}
+            Data.cache[pack_name]['routes']['funcs'][id(_func)] = {"func": _func, "parameters": {"rule": rule, **options}}
         
     return reg
 

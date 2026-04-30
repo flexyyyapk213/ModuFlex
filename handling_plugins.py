@@ -31,7 +31,7 @@ def handling_plugins():
                 
                 if os.path.exists(os.path.join('plugins', folder, '__modules__.txt')):
                     if not Data.config['ModuFlex'].get('libs_is_dwnld', False) and Data.one_download_libs or not Data.one_download_libs:
-                        with open(os.path.join('plugins', folder, '__modules__.txt')) as modules:
+                        with open(os.path.join('plugins', folder, '__modules__.txt'), encoding='utf-8') as modules:
                             download_library(modules.readlines())
 
                 md = __import__('plugins.' + folder)
@@ -82,7 +82,7 @@ def handle_plugin(pack_name: str):
                         })
         
         if os.path.exists(os.path.join('plugins', pack_name, '__modules__.txt')):
-            with open(os.path.join('plugins', pack_name, '__modules__.txt')) as modules:
+            with open(os.path.join('plugins', pack_name, '__modules__.txt'), encoding='utf-8') as modules:
                 download_library(modules.readlines())
         
         md = __import__('plugins.' + pack_name)
@@ -104,7 +104,7 @@ def handle_plugin(pack_name: str):
             Data.initializations.append(dict(md.__dict__.items())[pack_name].initialization)
         
         if os.path.exists(os.path.join('plugins', pack_name, 'manifest.json')):
-            with open(os.path.join('plugins', pack_name, 'manifest.json', encoding='utf-8')) as f:
+            with open(os.path.join('plugins', pack_name, 'manifest.json'), encoding='utf-8') as f:
                 manifest = json.load(f)
             
             spec = SpecifierSet(manifest['mf_version'])

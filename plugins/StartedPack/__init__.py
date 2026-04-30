@@ -64,6 +64,8 @@ def draw_text_box(draw: ImageDraw.Draw, text: str, box: tuple, font_path: str, s
 
     x = x - (h // 2)
 
+    font_path = os.path.join('plugins', 'StartedPack', 'stickers', 'fonts', font_path) if '/' not in font_path or '\\' not in font_path else font_path
+
     def wrap_text(text, font, max_width):
         words = text.split()
         lines = []
@@ -308,11 +310,11 @@ async def code_runner(_, msg: Message):
 
     final_result = (
         f'```python\n{code_slices.strip()}```\n',
-        f'{texts.strip()}',
+        f'{texts}',
         f'```time\n{end:.2f}с.```'
     )
     
-    await msg.edit(final_result[0] + '```bash\n' + final_result[1][4096 - max(len(final_result[0]) + len(final_result[2]), 4096):len(final_result[1])] + '\n```\n' + final_result[2])
+    await msg.edit(final_result[0] + '```bash\n' + final_result[1][(len(final_result[1]) + len(final_result[0]) + len(final_result[2])) - max(0, min(4083, len(final_result[1]))):len(final_result[1])] + '\n```\n' + final_result[2])
 
 @func(filters.command('afk', prefixes=['.', '!', '/']) & filters.me)
 async def afk_mode(_, msg: Message):

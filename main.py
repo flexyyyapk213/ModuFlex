@@ -226,7 +226,7 @@ async def help(_, msg: types.Message):
         try:
             for i, (func_name, func) in enumerate(funcs.items()):
                 parameters = " ".join([" {" + parameter + "}" for parameter in func.parameters]) if func.parameters else ''
-                help_text += f'<i>{i})</i> ' + '<b>{' + f'{", ".join(sorted(func.prefixes or ["/"], key=lambda x: PREFERRED_ORDER.index(x) if x in PREFERRED_ORDER else 999))}' + '}</b>' + f'<code>{func.command}</code>{parameters}{func.hyphen}{func.description or "Описание отсутствует."}\n'
+                help_text += f'<i>{i})</i> ' + f'<b>{func.parameters_style[0]}' + f'{", ".join(sorted(func.prefixes or ["/"], key=lambda x: PREFERRED_ORDER.index(x) if x in PREFERRED_ORDER else 999))}' + f'{func.parameters_style[1]}</b>' + f'<code>{func.command}</code>{parameters}{func.hyphen}{func.description or "Описание отсутствует."}\n'
 
                 if i == 25:
                     break
@@ -287,10 +287,10 @@ async def download_module(app: Client, msg: types.Message):
             if len(msg.text.split()) == 3:
                 _version = ' '.join(msg.text.split()[2:])
         except IndexError:
-            return await app.edit_message_text(msg.chat.id, msg.id, 'Вы не верно ввели параметры.Пример: /dwlmd {ссылка на гит хаб репозиторий}')
+            return await app.edit_message_text(msg.chat.id, msg.id, 'Вы не верно ввели параметры.Пример: /dwplg {ссылка на гит хаб репозиторий}')
         
         if 'https://github.com/' not in link:
-            return await app.edit_message_text(msg.chat.id, msg.id, 'Вы не верно ввели параметры.Пример: /dwlmd {ссылка на гит хаб репозиторий}')
+            return await app.edit_message_text(msg.chat.id, msg.id, 'Вы не верно ввели параметры.Пример: /dwplg {ссылка на гит хаб репозиторий}')
 
         async with aiohttp.ClientSession() as session:
             link_path = link.split('/')
@@ -413,7 +413,7 @@ async def remove_plugin(app: Client, msg: types.Message):
     try:
         plugin_name = msg.text.split()[1]
     except IndexError:
-        return await app.edit_message_text(msg.chat.id, msg.id, 'Вы не верно ввели параметры.Пример: /rmmd {имя плагина}')
+        return await app.edit_message_text(msg.chat.id, msg.id, 'Вы не верно ввели параметры.Пример: /rmplg {имя плагина}')
     
     if plugin_name not in Data.cache:
         return await app.edit_message_text(msg.chat.id, msg.id, 'Плагин не найден.')

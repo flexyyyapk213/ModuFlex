@@ -1,0 +1,204 @@
+body {
+    background-color: rgb(38, 70, 77);
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+
+#interface {
+    display: grid;
+    grid-column: 1;
+    width: 100%;
+    height: 100vh;
+    justify-items: center;
+    grid-template-rows: 1fr auto;
+}
+
+#history {
+    width: 100%;
+    max-width: 760px;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0);
+    overflow-y: scroll;
+    box-sizing: border-box;
+    padding: 10px 12px;
+}
+
+#input-ai {
+    width: 100%;
+    height: 7rem;
+    resize: none;
+    margin-bottom: 0;
+    border-radius: 15px;
+    border: none;
+    outline: none;
+    color: white;
+    font-size: 16px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 6px;
+    backdrop-filter: blur(5px);
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+    padding: 10px 52px 10px 10px;
+}
+
+#input-ai:hover {
+    background: rgba(255, 255, 255, 0.4);
+    border-color: #42c5f5;
+    color: #42c5f5;
+}
+
+.ai {
+    width: auto;
+    min-width: 0;
+    max-width: min(88vw, 600px);
+    border-bottom: 1px solid #232333;
+    min-height: 40px;
+    background: #232333;
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+    border-bottom-right-radius: 15px;
+    word-wrap: break-word;
+    font-family: 'Roboto', sans-serif;
+    padding: 10px;
+    margin-top: 10px;
+    overflow-wrap: anywhere;
+    color: #cfd7e6;
+    border-color: #232333;
+    box-shadow: 0 1px 6px 0 rgba(0,0,0,0.45);
+}
+
+.user {
+    width: auto;
+    justify-content: flex-end;
+    margin-left: auto;
+    max-width: min(88vw, 600px);
+    min-width: 0;
+    border-bottom: 1px solid #27405d;
+    min-height: 40px;
+    background: #151822;
+    border-bottom-left-radius: 15px;
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+    word-wrap: break-word;
+    font-family: 'Roboto', sans-serif;
+    padding: 10px;
+    margin-top: 10px;
+    overflow-wrap: anywhere;
+    color: #cddbcf;
+    border-color: #151822;
+    box-shadow: 0 1px 8px 0 rgba(0,0,0,0.35);
+}
+
+#input-panel {
+    width: min(100%, 760px);
+    position: relative;
+    box-sizing: border-box;
+    padding: 8px 12px 10px;
+}
+
+#send-message {
+    position: absolute;
+    right: 18px;
+    bottom: 18px;
+    margin: 0;
+    z-index: 3;
+    width: 3rem;
+    height: 3rem;
+    background-color: rgba(255, 255, 255, 0);
+    background-image: url("send.png");
+    background-size: 2rem;
+    border-radius: 25px;
+    background-repeat: no-repeat;
+    background-position: center;
+    transition: all 0.3s ease;
+    border: none;
+    justify-items: flex-end;
+}
+
+@media (max-width: 768px) {
+    #history {
+        padding: 8px 8px 12px;
+    }
+
+    #input-panel {
+        width: 100%;
+        padding: 8px;
+    }
+
+    #input-ai {
+        height: 5.75rem;
+        font-size: 16px;
+        padding: 10px 48px 10px 10px;
+    }
+
+    #send-message {
+        width: 2.7rem;
+        height: 2.7rem;
+        background-size: 1.5rem;
+        right: 12px;
+        bottom: 12px;
+    }
+
+    .ai,
+    .user {
+        max-width: calc(100vw - 26px);
+    }
+}
+
+#send-message:hover {
+    background-color: rgba(58, 58, 58, 0.445);
+    color: #42c5f5;
+}
+
+#send-message:active {
+    color: firebrick;
+    background-color: rgba(182, 182, 182, 0.295);
+}
+
+p {
+    margin: 3px;
+}
+
+.copy-code {
+    width: 1rem;
+    height: 1rem;
+    background-image: url("copy.png");
+    filter: invert(1) brightness(1.2);
+    background-color: #15182200;
+    border: none;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    cursor: pointer;
+    transition: all 0.1s ease;
+}
+
+.copy-code:active {
+    transform: scale(1.25);
+}
+
+.code {
+    position: relative;
+}
+
+pre {
+    position: relative;
+}
+.copy-code {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 2;
+}
+
+a {
+    color: #42c5f5;
+}

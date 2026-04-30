@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', function (_) {
     let snd_log = document.getElementById('send-log')
     let back = document.getElementById('back')
     let аdditional_аccounts = document.getElementById('аdditional-аccounts')
+    let docs = document.getElementById('docs')
 
     snd_log.addEventListener('click', function (_) {
         fetch('/ModuFlex/send_logfile', {
@@ -16,5 +17,9 @@ document.addEventListener('DOMContentLoaded', function (_) {
 
     аdditional_аccounts.addEventListener('click', function(_) {
         window.location.href = '/ModuFlex/additional_accounts/'
+    })
+
+    docs.addEventListener('click', function(_) {
+        window.location.href = '/ModuFlex/docs'
     })
 })

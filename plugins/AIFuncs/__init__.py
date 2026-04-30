@@ -1,27 +1,9 @@
 from g4f.client import AsyncClient
 from g4f.Provider import RetryProvider, __providers__, OIVSCodeSer2, PollinationsAI, ApiAirforce
-from g4f.models import (
-    Chatai,
-    Cloudflare,
-    Copilot,
-    DeepInfra,
-    HuggingSpace,
-    Grok,
-    DeepseekAI_JanusPro7b,
-    LambdaChat,
-    OIVSCodeSer0501,
-    OIVSCodeSer2,
-    OperaAria,
-    OpenAIFM,
-    PollinationsAI,
-    TeachAnything,
-    Together,
-    WeWordle,
-    Yqcloud,
-)
 from g4f.models import _all_models
+from g4f import models
 import json
-from loads import all_func, func, MainDescription, Description, FuncDescription, Data
+from loads import all_func, func, MainDescription, Description, FuncDescription, Data, route
 from pyrogram import filters, types, enums
 from pyrogram.client import Client
 from colorama import init, Fore
@@ -31,6 +13,8 @@ import time
 from typing import Any, Union, List, Dict
 import g4f.debug
 import traceback
+from quart import render_template, Response, request
+import asyncio
 
 g4f.debug.logging = True
 
@@ -45,16 +29,24 @@ __description__ = Description(
     FuncDescription('aihtry', 'ИИ читает историю чата.', prefixes=['.', '!', '/'], parameters=[r'\-\-c={число} и/или текст']),
     FuncDescription('style', 'Изменяет стиль общения ИИ.По умолчанию он обычный, если нечего не указывать, стиль изменится на по умолчанию.', prefixes=['.', '!', '/'], parameters=['не обязательно(стиль)']),
     FuncDescription('aifk', 'Улучшенная версия afk, где ИИ заменяет вас, пока вы куда то отошли.', prefixes=['.', '!', '/']),
-    FuncDescription('sysprompt', 'Устанавливает системный промпт.', parameters=('промпт(можно не указывать, тогда очиститься)'))
+    FuncDescription('sysprompt', 'Устанавливает системный промпт.', parameters=('промпт(можно не указывать, тогда очиститься)',))
 )
 
 init(True)
 
-config = {"text_model": "gpt-4o-mini", "image_model": "gemini-2.5-flash", "history": [], "history_len": 20, "warnings": True, "web_search": False, "style": "обычный", "afk": False}
+config = {"text_model": "command-r-7-b", "image_model": "gemini-2.5-flash", "hgistory_len": 20, "warnings": True, "web_search": False, "style": "обычный", "afk": False}
 
 Data.get_config('AIFuncs').setdefault(config)
 
 config = Data.get_config('AIFuncs')
+
+try:
+    with open('plugins/AIFuncs/config.json', encoding='utf-8') as f:
+        history = json.load(f)
+except FileNotFoundError:
+    with open('plugins/AIFuncs/config.json', 'w', encoding='utf-8') as f:
+        f.write('[]')
+        history = []
 
 best_model = Fore.YELLOW + '👑Надёжные модели👑' + Fore.RESET + '\n' + Fore.RED + '[ ДЛЯ ТЕКСТА ]' + Fore.RESET + '\n' + '\n'.join(['gpt-4', 'gpt-4o', 'gpt-4o-mini', 'o1', 'o1-mini', 'o3-mini', 'o3-mini-high', 'o4-mini', 'o4-mini-high', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4.5', 'llama-3.1-8b', 'llama-3.1-70b', 'llama-3.1-405b', 'llama-3.2-3b', 'llama-3.2-11b', 'llama-3.2-90b', 'llama-3.3-70b', 'gemini-2.0', 'gemini-2.0-flash', 'gemini-2.0-flash-thinking', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemma-3-4b', 'gemma-3-12b', 'gemma-3-27b', 'gemma-3n-e4b', 'qwen-3-235b', 'qwen-3-32b', 'qwen-3-30b', 'qwen-3-14b', 'qwen-3-4b', 'qwen-3-1.7b', 'qwen-3-0.6b', 'qwq-32b', 'deepseek-v3', 'deepseek-r1', 'deepseek-r1-turbo', 'deepseek-r1-distill-llama-70b', 'deepseek-v3', 'deepseek-r1', 'deepseek-r1-turbo', 'grok-2', 'grok-3', 'grok-3-r1']) + '\n\n' + Fore.RED + '[ ДЛЯ ИЗОБРАЖЕНИЙ ]' + Fore.RESET + '\n' + '\n'.join(['dall-e-3', 'gpt-image', 'sdxl-turbo', 'sd-3.5-large', 'flux', 'flux-pro', 'flux-dev', 'flux-schnell', 'flux-redux', 'flux-depth', 'flux-canny', 'flux-kontext', 'flux-dev-lora', 'gemini-2.0-flash', 'gemini-2.0-flash-thinking', 'gemini-2.5-flash', 'gemini-2.5-pro'])
 
@@ -64,16 +56,11 @@ def initialization(_):
 
 class Conservation:
     def __init__(self):
-        self.client = AsyncClient(provider=RetryProvider([
-            Chatai, Cloudflare, Copilot, DeepInfra, HuggingSpace, Grok, 
-            DeepseekAI_JanusPro7b, LambdaChat, OIVSCodeSer2, 
-            OIVSCodeSer0501, OperaAria, OpenAIFM,
-            PollinationsAI, TeachAnything, Together, WeWordle, Yqcloud
-        ]))
+        self.client = AsyncClient(provider=RetryProvider(__providers__))
         self.history = [{
             "role": "system",
             "content": "Ты обычный assistant в телеграмме, ты общаешься с user.Если требуется, используй форматирование: ```lang_programming\ntext\n```, **text**, ~~text~~, __text__, `text_to_copy`.Общайся в стиле(если обычный, игнорируй это): " + config['style']
-        }] + config['history']
+        }] + history
 
         self.system_prompts = []
 
@@ -83,20 +70,18 @@ class Conservation:
             "content": content
         })
 
-        config['history'].append({
+        history.append({
             "role": role,
             "content": content
         })
 
-        if len(config['history']) > config['history_len']:
-            config['history'] = config['history'][int(config['history_len']/4):]
+        if len(history) > config['history_len']:
+            self.history = self.history[int(config['history_len']/4):]
         
         with open('plugins/AIFuncs/config.json', 'w', encoding='utf-8') as f:
-            json.dump(config, f, ensure_ascii=False)
+            json.dump(history, f, ensure_ascii=False)
     
-    async def get_response(self, user_message, web_search: bool=False, history: bool=True, image: bytes=None) -> Union[str, None]:
-        if history: self.add_message("user", user_message)
-
+    async def _get_response(self, user_message: str, web_search: bool=False, history: bool=True, image: bytes=None) -> Union[str, None]:
         messages: list[Dict[str, Any]] = self.system_prompts + self.history + [{"role": "user", "content": user_message}] if history else [{"role": "user", "content": user_message}]
 
         providers = RetryProvider([OIVSCodeSer2, PollinationsAI, ApiAirforce]) if image != None else None
@@ -110,17 +95,32 @@ class Conservation:
             max_tokens=4096
         )
         
-        assistant_response = response.choices[0].message.content
+        try:
+            assistant_response = response.choices[0].message.content
+        except:
+            traceback.print_exc()
+            return await self.get_response(user_message, web_search, history)
 
         if not isinstance(assistant_response, str):
             return await self.get_response(user_message, web_search, history)
 
         if len(assistant_response) > 4096:
             assistant_response = None
+        
+        if not assistant_response:
+            return await self.get_response(user_message, web_search, history)
 
+        if history: self.add_message("user", user_message)
         if history: self.add_message("assistant", assistant_response)
         
         return assistant_response
+    
+    async def get_response(self, user_message: str, web_search: bool=False, history: bool=True, image: bytes=None) -> Union[str, None]:
+        try:
+            result = await asyncio.wait_for(self._get_response(user_message, web_search, history, image), 3*60)
+            return result
+        except asyncio.TimeoutError:
+            return await self.get_response(user_message, web_search, history, image)
 
     async def generate_image(self, prompt: str, web_search: bool=None) -> bytes:
         response = await self.client.images.generate(
@@ -334,3 +334,22 @@ async def set_system_prompt(app: Client, message: types.Message):
     _ai.system_prompts.append({"role": "system", "content": prompt})
 
     await message.edit_text('Системный промпт был задан.')
+
+@route('/')
+async def main_page():
+    return await render_template('AIFuncs/index.html')
+
+@route('/get_message=<int:offset>', methods=['GET'])
+async def get_message(offset: int):
+    if offset <= len(history) - 1:
+        return {"status": 200, "history": history[offset]}
+    else:
+        return Response(status=404)
+
+@route('/send_message', methods=['POST'])
+async def request_ai():
+    text = (await request.json)['text']
+
+    await _ai.get_response(text)
+
+    return Response(status=200)

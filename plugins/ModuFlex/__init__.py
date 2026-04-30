@@ -1,5 +1,5 @@
 from loads import Description, MainDescription, FuncDescription, route
-from quart import render_template, request
+from quart import render_template, request, redirect, send_from_directory
 from pyrogram.client import Client
 from io import BytesIO
 from pyrogram.enums import ParseMode
@@ -9,6 +9,9 @@ import logging
 import traceback
 import re
 from typing import List
+from pathlib import Path
+
+SITE_DIR = Path(__path__[0]).parents[1] / "site"
 
 logger = logging.getLogger()
 
@@ -145,3 +148,15 @@ async def delete_account(index: int):
         logger.error(traceback.format_exc())
     
     return {"status": 200}
+
+@route('/docs', methods=['GET'])
+async def docs_no_slash():
+    return redirect('/ModuFlex/docs/')
+
+@route('/docs/', methods=['GET'])
+async def docs_index():
+    return await send_from_directory(SITE_DIR, 'index.html')
+
+@route('/docs/<path:filename>', methods=['GET'])
+async def docs_static(filename):
+    return await send_from_directory(SITE_DIR, filename)
