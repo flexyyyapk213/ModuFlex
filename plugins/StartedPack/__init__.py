@@ -43,7 +43,8 @@ __description__ = Description(
     FuncDescription('afk', 'Включает/выключает режим афк.Когда вам напишут и будет вкл. тогда пользователю отправиться сообщение.'),
     FuncDescription('excrypto', 'Показывает текущий указанный курс.Пример: .excrypto BTC/USDT 1', ' 💱 ', ('из(крипта)/в', 'кол-во')),
     FuncDescription('quote', 'Отправляет определённый стикер с текстом.Если не вводить параметры, в консоль отправится список названий стикеров.', parameters=('название стикера(не обязательно)', 'текст')),
-    FuncDescription('export', 'Экспортирует чат в файл(xml или json) и отправляет в избранное.', parameters=('формат файла(xml или json)',))
+    FuncDescription('export', 'Экспортирует чат в файл(xml или json) и отправляет в избранное.', parameters=('формат файла(xml или json)',)),
+    FuncDescription('aquote', 'Отправляет стикер с текстом из ответного сообщения. Если не вводить параметры, в консоль отправится список названий стикеров.', parameters=('название стикера(не обязательно)',))
 )
 #__description__ описывает плагин и его функции
 # Теперь с версии 0.1.0 писать эту переменную можно в любом месте
@@ -545,6 +546,48 @@ async def export_chat_history(client: Client, message: Message):
     await client.send_document('me', file_data)
 
     await message.edit_text('Файл отправлен в избранное.')
+
+@func(filters.command('aquote', ['/', '.', '!']) & filters.all)
+async def aquote(client: Client, message: Message):
+    await message.delete()
+
+    try:
+        back_name = message.text.split()[1]
+    except:
+        await message.answer('В консоль был выведен список названий стикеров.')
+        return print('\n'.join([name.replace('.json', '') for name in os.listdir('plugins/StartedPack/stickers') if name.endswith('.json')]))
+    
+    if message.reply_to_message is None:
+        return await message.answer('Вы не ответили на сообщение.')
+    
+    text = message.reply_to_message.text
+
+    try:
+        img = Image.open(f'plugins/StartedPack/stickers/{back_name}.webp')
+    except FileNotFoundError:
+        return await client.send_message(message.chat.id, 'Такого стикера нету.')
+    draw = ImageDraw.Draw(img)
+
+    with open(f'plugins/StartedPack/stickers/{back_name}.json') as f:
+        json_parameters = json.load(f)
+
+    draw_text_box(
+        draw,
+        text,
+        json_parameters['box'],
+        json_parameters['font_path'],
+        json_parameters['start_size'],
+        fill=json_parameters['fill'],
+        align=json_parameters['align']
+    )
+
+    stk = BytesIO()
+
+    img.save(stk, 'WEBP')
+
+    stk.name = 'sticker.webp'
+
+    await client.send_sticker(message.chat.id, stk, reply_to_message_id=message.reply_to_message.id if message.reply_to_message else None)
 
 @private_func()
 async def _private_func(client: Client, msg: Message):

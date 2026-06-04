@@ -728,9 +728,32 @@ async def hacker_animation(_, msg: types.Message):
             tick += 1
             
             await msg.edit_text(''.join(hiden_text))
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.3)
             
         except FloodWait as e:
             await asyncio.sleep(e.value)
         except MessageNotModified:
             pass
+
+@func(filters.command('moon', prefixes=['.', '!', '/']) & filters.me)
+async def moon_animation(_, msg: types.Message):
+    moons = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"]
+
+    i = 0
+
+    while True:
+        await msg.edit(moons[i])
+
+        i += 1
+
+        await asyncio.sleep(0.7)
+
+        if i == len(moons) - 1:
+            i = 0
+        
+        if i == 0 or i == 4:
+            rand = random.randint(0, 100) > 50
+
+            if rand:
+                await msg.edit('🌝' if i == 0 else '🌚')
+                break

@@ -34,7 +34,7 @@ __description__ = Description(
 
 init(True)
 
-config = {"text_model": "command-r-7-b", "image_model": "gemini-2.5-flash", "hgistory_len": 20, "warnings": True, "web_search": False, "style": "обычный", "afk": False}
+config = {"text_model": "command-r-7-b", "image_model": "gemini-2.5-flash", "history_len": 20, "warnings": True, "web_search": False, "style": "обычный", "afk": False}
 
 Data.get_config('AIFuncs').setdefault(config)
 

@@ -1,4 +1,4 @@
-from typing import Callable, Union, Optional, Any, Dict, List, Tuple
+from typing import Callable, Iterable, Union, Optional, Any, Dict, List, Tuple
 import inspect
 from pyrogram import filters
 import os
@@ -34,7 +34,7 @@ __all__ = [
     'handleMethods',
     'download_library',
     'sandbox_exec',
-    'ChatType',
+    'chatType',
     'route'
 ]
 
@@ -81,16 +81,16 @@ class MappingConfig(dict):
 
         self._save()
     
-    def keys(self):
+    def keys(self) -> List[Any]:
         return self._dict.keys()
     
-    def values(self):
+    def values(self) -> List[Any]:
         return self._dict.values()
     
-    def items(self):
+    def items(self) -> Iterable:
         return self._dict.items()
     
-    def clear(self):
+    def clear(self) -> None:
         self._dict.clear()
 
         self._save()
@@ -108,17 +108,17 @@ class MappingConfig(dict):
     def __len__(self) -> int:
         return self._dict.__len__()
     
-    def pop(self, key):
+    def pop(self, key) -> Any:
         _item = self._dict.pop(key)
 
         self._save()
 
         return _item
 
-    def copy(self):
+    def copy(self) -> Dict:
         return self._dict.copy()
     
-    def get(self, key, default=None):
+    def get(self, key, default=None) -> Union[Dict, Any]:
         return MappingConfig(self.plugin_name, key) if self._dict.get(key, default) != default else default
     
     def _save(self) -> None:

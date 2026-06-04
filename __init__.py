@@ -1,14 +1,13 @@
 __name__ = 'ModuFlex'
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 __author__ = 'flexyyy'
 __link__ = 'https://t.me/flexyyyapk'
 __gitHub__ = 'https://github.com/flexyyyapk213/ModuFlex'
-__news__ = """✨Обновление 0.1.2
+__news__ = """✨Обновление 0.1.3
 
 ```✦ Что нового?
-- Исправлены баги: в обработке нового плагина при скачивании, описание команды sysprompt в AIFuncs, обрезание сообщений консоли в команде code плагина StartedPack и в команде quote.
-- Добавлен переход в оффлайн документацию в веб панели плагина ModuFlex.
-- Добавлен чат с ИИ в вебе у AIFuncs.
+- Переписан Contribution.
+- Добавлена одна команда в плагине AnimationPack и StartedPack.
 - Мелкие исправления/улучшения.
 ```
 """

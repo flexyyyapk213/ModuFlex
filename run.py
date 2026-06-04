@@ -90,6 +90,9 @@ from __init__ import __modules__
 if importlib.util.find_spec('alive_progress') is None:
     subprocess.run([sys.executable, '-m', 'pip', 'install', 'alive-progress'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
+if importlib.util.find_spec('pyrogram') is None:
+    subprocess.run([sys.executable, '-m', 'pip', 'install', 'pyrogram'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
 from alive_progress import alive_it, styles
 
 try:
@@ -106,14 +109,14 @@ if 'ModuFlex' in _config:
         for module in alive_it(__modules__, title='Проверка библиотек', spinner=styles.SPINNERS['pulse'], theme='smooth'):
             if importlib.util.find_spec(module) is None:
                 try:
-                    subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout_download_lib)
+                    subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, timeout=timeout_download_lib)
                 except subprocess.TimeoutExpired:
                     print(f'\033[31mНе удалось установить библиотеку {module}: Таймаут скачивания\033[0m')
 else:
     for module in alive_it(__modules__, title='Проверка библиотек', spinner=styles.SPINNERS['pulse'], theme='smooth'):
         if importlib.util.find_spec(module) is None:
             try:
-                subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout_download_lib)
+                subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, timeout=timeout_download_lib)
             except subprocess.TimeoutExpired:
                 print(f'\033[31mНе удалось установить библиотеку {module}: Таймаут скачивания\033[0m')
 
@@ -123,7 +126,7 @@ import shutil
 def is_node_installed():
     return shutil.which("node") is not None
 
-if 'node_modules' not in os.listdir():
+if 'node_modules' not in os.listdir() or not is_node_installed():
     system = platform.system().lower()
     if not is_node_installed():
         try:
