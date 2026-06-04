@@ -10,4 +10,4 @@ node_modules/
 generated_media/
 package-lock.json
 package.json
-plugins/AIFuncs/configuration.json
+plugins/AIFuncs/config.json
