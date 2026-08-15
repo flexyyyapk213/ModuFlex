@@ -27,4 +27,4 @@ jobs:
         env:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: |
-          python send_release_message.py
+          python send_notification.py
