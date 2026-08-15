@@ -60,18 +60,18 @@ class MappingConfig(dict):
         for key in keys:
             self._dict = self._dict[key]
     
-    def __setitem__(self, key, value, /) -> None:
+    def __setitem__(self, key, value) -> None:
         self._dict[key] = value
 
         self._save()
     
-    def __getitem__(self, key, /) -> "MappingConfig":
+    def __getitem__(self, key) -> "MappingConfig":
         if type(self._dict[key]) == dict:
             return MappingConfig(self.plugin_name, self._keys + [key])
         else:
             return self._dict[key]
     
-    def __delitem__(self, key, /) -> None:
+    def __delitem__(self, key) -> None:
         del self._dict[key]
 
         self._save()
@@ -138,7 +138,7 @@ class MappingConfig(dict):
             self.update(_dict)
         else:
             for key in _dict:
-                if key not in _dict:
+                if key not in self._dict:
                     self.update({key: copy.deepcopy(_dict[key])})
 
 class Data:
@@ -180,6 +180,8 @@ class Data:
 
     DEFAULT_MODUFLEX_CONFIG = {'dwnlds_libs_date': (datetime.now()).strftime('%Y-%m-%d'), 'libs_is_dwnld': False}
 
+    root_folder: str = ""
+
     try:
         with open('configuration.json', encoding='utf-8') as f:
             config = json.load(f)
@@ -196,7 +198,7 @@ class Data:
         """
         Возвращает список плагинов.
         """
-        return list(Data.description.keys())
+        return list(cls.description.keys())
     
     @classmethod
     def get_config(cls, plugin_name: Optional[str]=None) -> Union[MappingConfig, Dict]:
@@ -216,11 +218,11 @@ class Data:
             plugin_name = _path_parts[_path_parts.index('plugins') + 1]
         
         if plugin_name is not None:
-            if plugin_name not in Data.config:
-                Data.config.update({plugin_name: {}})
+            if plugin_name not in cls.config:
+                cls.config.update({plugin_name: {}})
 
                 with open('configuration.json', 'w', encoding='utf-8') as f:
-                    json.dump(Data.config, f, ensure_ascii=False)
+                    json.dump(cls.config, f, ensure_ascii=False)
             
             frame = inspect.currentframe()
             caller_frame = frame.f_back
@@ -232,15 +234,33 @@ class Data:
             if plugin_name == pack_name:
                 return MappingConfig(plugin_name, [])
             else:
-                return copy.deepcopy(Data.config[plugin_name])
+                return copy.deepcopy(cls.config[plugin_name])
         else:
-            return copy.deepcopy(Data.config)
+            return copy.deepcopy(cls.config)
     
     @classmethod
     def __save_config__(cls):
         with open('configuration.json', 'w', encoding='utf-8') as f:
-            _cfg = json.dumps(Data.config, ensure_ascii=False)
+            _cfg = json.dumps(cls.config, ensure_ascii=False)
             f.write(_cfg)
+
+    @classmethod
+    def __clear_plugin__(cls, plugin: str):
+        frame = inspect.currentframe()
+        previous_frame = frame.f_back
+
+        if previous_frame is None:
+            raise RuntimeError("Предыдущий фрейм пуст.")
+
+        path_parts = os.path.normpath(previous_frame.f_code.co_filename).split(os.sep)
+
+        if not os.path.normpath(os.path.dirname('/'.join(path_parts))).startswith(os.path.normpath(cls.root_folder)):
+            raise RuntimeError("Недопустимый путь вызова.")
+
+        if path_parts[-1] not in ['handling_plugins.py']:
+            raise RuntimeError("Недопустимый путь вызова.")
+
+
 
 class Module:
     def __init_subclass__(cls, **kwargs):
@@ -264,7 +284,7 @@ class Module:
                 if func._type == 'route':
                     Data.cache[pack_name]['routes']['methods'][id(func)] = {"method": func, "class_id": id(_cls), "parameters": {"rule": "/" + func.parameters[0], **func.parameters[1]}}
                 else:
-                    Data.cache[pack_name]['classes'][id(_cls)]['methods'].update({func.__name__: {"method": func, "filters": func.filters, "prefixes": func.prefixes, "command_name": func.command_name, "type": func._type}})
+                    Data.cache[pack_name]['classes'][id(_cls)]['methods'].update({func.__name__: {"method": func, "filters": func.filters, "prefixes": func.prefixes, "command_name": func.command_name, "type": func._type, "parameters": func.parameters}})
 
 class chatType(str, Enum):
     """
@@ -347,18 +367,96 @@ class Description:
     def __init__(self, main_description: MainDescription, *args: FuncDescription):
         self.main_description = main_description
 
-        self.funcs_description: Dict[str, Dict[str, FuncDescription]] = {}
+        self.funcs_description: Dict[str, FuncDescription] = {}
 
         for func in args:
             self.funcs_description.update({func.command: func})
 
-def func(_filters: filters, description: str=None) -> Callable:
+class Parameters:
+    """
+    Класс Parameters предназначен для хранения и компиляции набора регулярных выражений,
+    используемых для извлечения параметров из строки (например, из команды пользователя).
+    Он удобен тем, что не нужно вручную искать параметры, которые не факт, что найдётся как должно и также, он передаётся в объект `Message` как поле `parameters`, если вы передавали нужный параметр.
+    Пример:
+
+    ```python
+    @func(filters.command('test'), parameters=Parameters(['\w+', '\d+']))
+    async def test(client: Client, message: types.Message):
+        print(message.parameters) # ('qwerty', '123456')
+    ```
+
+    Args:
+        parameters (Union[Dict, List, Tuple]): Список, кортеж или словарь с шаблонами регулярных выражений.
+            Если это список или кортеж, параметры возвращаются в виде кортежа.
+            Если это словарь, результат будет словарём с соответствующими ключами (передали {'a': r'\w+', 'b': r'\d+'} - вернуло {'a': 'qwerty', 'b': '123456'}).
+        re_flags (int, optional): Флаги для компиляции регулярных выражений (по умолчанию 0).
+    Raises:
+        ValueError: Если передан неподдерживаемый тип параметров.
+    """
+    def __init__(self, parameters: Union[Dict[str, str], List[str], Tuple[str]], re_flags=0):
+        self.parameters = parameters
+
+        if isinstance(self.parameters, (list, tuple)):
+            self.compilers = [re.compile(pattern, re_flags) for pattern in self.parameters]
+        elif isinstance(self.parameters, dict):
+            self.compilers = {key: re.compile(pattern, re_flags) for key, pattern in self.parameters.items()}
+        else:
+            raise ValueError(f'Недопустимый тип параметров: {type(self.parameters)}')
+
+    def compile(self, string: str) -> Union[Dict[str, str], Tuple[str]]:
+        """
+        Применяет скомпилированные рег. выражения к строке, возвращая параметры.
+
+        Args:
+            string (str): Строка для поиска параметров.
+
+        Returns:
+            Union[Dict, Tuple]: Картеж или словарь найденных параметров (если совпадения не найдено - None).
+        """
+        params = None
+
+        if isinstance(self.parameters, dict):
+            params = {}
+            
+            for key, compiler in self.compilers.items():
+                searching = compiler.search(string)
+
+                if searching is None:
+                    params[key] = None
+                    continue
+
+                text = searching.group(0)
+                string = string.replace(text, '', 1)
+                params[key] = text
+
+        elif isinstance(self.parameters, (list, tuple)):
+            params = []
+
+            for compiler in self.compilers:
+                searching = compiler.search(string)
+
+                if searching is None:
+                    params.append(None)
+                    continue
+
+                text = searching.group(0)
+                string = string.replace(text, '', 1)
+                params.append(text)
+            
+            params = tuple(params)
+        else:
+            raise ValueError(f'Недопустимый тип параметров: {type(self.parameters)}')
+        
+        return params
+
+def func(_filters: filters, description: str=None, parameters: Optional[Parameters]=None) -> Callable:
     """
     Декоратор для регистрации обработчика сообщений (команды).
 
     Args:
         _filters (filters): Фильтры pyrogram для отбора сообщений.
         description (str): Описание команды.
+        parameters (Parameters): Параметры команды.
     Returns:
         Callable: Зарегистрированная функция-обработчик.
     """
@@ -396,16 +494,17 @@ def func(_filters: filters, description: str=None) -> Callable:
             _func.command_name = command_name
             _func.pack_name = pack_name
             _func.filters = _filters
+            _func.parameters = parameters
 
             del frame
             return _func
         else:
-            Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
+            Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default", "parameters": parameters}})
         
         del frame
     return reg
 
-def private_func(_filters: filters=None, description: str='Описание отсутствует.') -> Callable:
+def private_func(_filters: filters=None, description: str='Описание отсутствует.', parameters: Optional[Parameters]=None) -> Callable:
     """
     Декоратор для регистрации обработчика сообщений в личных сообщениях.
 
@@ -414,6 +513,7 @@ def private_func(_filters: filters=None, description: str='Описание от
     Args:
         _filters (filters, optional): Фильтры pyrogram (или None).
         description (str): Описание команды.
+        parameters (Parameters): Параметры команды.
     Returns:
         Callable: Зарегистрированная функция-обработчик.
     """
@@ -452,16 +552,17 @@ def private_func(_filters: filters=None, description: str='Описание от
             _func.command_name = command_name
             _func.pack_name = pack_name
             _func.filters = _filters
+            _func.parameters = parameters
 
             del frame
             return _func
         else:
-            Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
+            Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default", "parameters": parameters}})
         
         del frame
     return reg
 
-def chat_func(_filters: filters=None, description: str='Описание отсутствует.') -> Callable:
+def chat_func(_filters: filters=None, description: str='Описание отсутствует.', parameters: Optional[Parameters]=None) -> Callable:
     """
     Декоратор для регистрации обработчика сообщений из чата (не ЛС).
 
@@ -470,6 +571,7 @@ def chat_func(_filters: filters=None, description: str='Описание отс�
     Args:
         _filters (filters, optional): Фильтры pyrogram (или None).
         description (str): Описание команды.
+        parameters (Parameters): Параметры команды.
     Returns:
         Callable: Зарегистрированная функция-обработчик.
     """
@@ -508,16 +610,17 @@ def chat_func(_filters: filters=None, description: str='Описание отс�
             _func.command_name = command_name
             _func.pack_name = pack_name
             _func.filters = _filters
+            _func.parameters = parameters
 
             del frame
             return _func
         else:
-            Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
+            Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default", "parameters": parameters}})
         
         del frame
     return reg
 
-def channel_func(_filters: filters=None, description: str='Описание отсутствует.') -> Callable:
+def channel_func(_filters: filters=None, description: str='Описание отсутствует.', parameters: Optional[Parameters]=None) -> Callable:
     """
     Декоратор для регистрации обработчика сообщений из канала.
 
@@ -526,6 +629,7 @@ def channel_func(_filters: filters=None, description: str='Описание от
     Args:
         _filters (filters, optional): Фильтры pyrogram (или None).
         description (str): Описание команды.
+        parameters (Parameters): Параметры команды.
     Returns:
         Callable: Зарегистрированная функция-обработчик.
     """
@@ -564,16 +668,17 @@ def channel_func(_filters: filters=None, description: str='Описание от
             _func.command_name = command_name
             _func.pack_name = pack_name
             _func.filters = _filters
+            _func.parameters = parameters
 
             del frame
             return _func
         else:
-            Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
+            Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default", "parameters": parameters}})
         
         del frame
     return reg
 
-def all_func(_filters: filters=None, description: str='Описание отсутствует.') -> Callable:
+def all_func(_filters: filters=None, description: str='Описание отсутствует.', parameters: Optional[Parameters]=None) -> Callable:
     """
     Декоратор для регистрации обработчика сообщений для всех чатов/типов.
 
@@ -582,6 +687,7 @@ def all_func(_filters: filters=None, description: str='Описание отсу
     Args:
         _filters (filters, optional): Фильтры pyrogram (или None).
         description (str): Описание команды.
+        parameters (Parameters): Параметры команды.
     Returns:
         Callable: Зарегистрированная функция-обработчик.
     """
@@ -620,11 +726,12 @@ def all_func(_filters: filters=None, description: str='Описание отсу
             _func.command_name = command_name
             _func.pack_name = pack_name
             _func.filters = _filters
+            _func.parameters = parameters
 
             del frame
             return _func
         else:
-            Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default"}})
+            Data.cache[pack_name]['funcs'].update({id(_func): {"func": _func, "filters": _filters, "prefixes": prefixes, "command_name": command_name, "type": "default", "parameters": parameters}})
         
         del frame
     return reg

@@ -1,5 +1,5 @@
 from g4f.client import AsyncClient
-from g4f.Provider import RetryProvider, __providers__, OIVSCodeSer2, PollinationsAI, ApiAirforce
+from g4f.Provider import RetryProvider, __providers__, PollinationsAI, ApiAirforce
 from g4f.models import _all_models
 from g4f import models
 import json
@@ -84,7 +84,7 @@ class Conservation:
     async def _get_response(self, user_message: str, web_search: bool=False, history: bool=True, image: bytes=None) -> Union[str, None]:
         messages: list[Dict[str, Any]] = self.system_prompts + self.history + [{"role": "user", "content": user_message}] if history else [{"role": "user", "content": user_message}]
 
-        providers = RetryProvider([OIVSCodeSer2, PollinationsAI, ApiAirforce]) if image != None else None
+        providers = RetryProvider([PollinationsAI, ApiAirforce]) if image != None else None
         
         response = await self.client.chat.completions.create(
             model=config['text_model'],
@@ -201,13 +201,10 @@ async def change_text_model(app: Client, message: types.Message):
     
     model = message.text.split()[1]
 
-    if model not in _all_models:
+    if model not in _all_models and model != "auto":
         return await message.edit(f'Данной модели `{model}` не существует.')
 
     config['text_model'] = model
-    
-    with open('plugins/AIFuncs/config.json', 'w', encoding='utf-8') as f:
-        json.dump(config, f, ensure_ascii=False)
     
     await message.edit(f'Установлена текстовая модель: `{model}`')
 
@@ -220,13 +217,10 @@ async def change_image_model(app: Client, message: types.Message):
     
     model = message.text.split()[1]
 
-    if model not in _all_models:
+    if model not in _all_models and model != "auto":
         return await message.edit(f'Данной модели `{model}` не существует.')
 
     config['image_model'] = model
-    
-    with open('plugins/AIFuncs/config.json', 'w', encoding='utf-8') as f:
-        json.dump(config, f, ensure_ascii=False)
     
     await message.edit(f'Установлена модель: `{model}`')
 

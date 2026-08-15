@@ -3,13 +3,35 @@ import logging
 import os
 import traceback
 import json
+from packaging import version
+from packaging.specifiers import SpecifierSet
+from threading import Thread
+import importlib
 
 from __init__ import __version__
 from loads import Data, Description, download_library
-from packaging import version
-from packaging.specifiers import SpecifierSet
+
+from watchdog.events import FileSystemEventHandler, DirModifiedEvent, FileModifiedEvent
+from pyrogram import Client
 
 logger = logging.getLogger(__name__)
+
+class HotReload(FileSystemEventHandler):
+    def __init__(self, client: Client) -> None:
+        self.client = client
+
+    def on_any_event(self, event) -> None:
+        if event.is_directory:
+            return
+
+        if event.event_type in ('modified', 'created', 'moved') and not event.src_path.endswith(".pyc"):
+            parts_path = os.path.normpath(event.src_path).split(os.sep)
+
+            pack_name: str = parts_path[parts_path.index("plugins") + 1]
+            Data.__clear_plugin__(pack_name)
+            importlib.reload(importlib.import_module("plugins." + pack_name))
+            handle_plugin(pack_name, self.client)
+
 
 def handling_plugins():
     folders = os.listdir('plugins')
@@ -25,7 +47,8 @@ def handling_plugins():
                     folder: {
                         "funcs": {},
                         "classes": {},
-                        "routes": {}
+                        "routes": {},
+                        "initialization": None
                     }
                                 })
                 
@@ -50,7 +73,7 @@ def handling_plugins():
                         Data.failed_modules += 1
                         continue
                     
-                    Data.initializations.append(dict(md.__dict__.items())[folder].initialization)
+                    Data.cache[folder]["initialization"] = dict(md.__dict__.items())[folder].initialization
 
                 if os.path.exists(os.path.join('plugins', folder, 'manifest.json')):
                     with open(os.path.join('plugins', folder, 'manifest.json'), encoding='utf-8') as f:
@@ -63,21 +86,21 @@ def handling_plugins():
                         Data.cache.pop(folder)
                         try:
                             Data.description.pop(folder)
-                            Data.initializations.pop()
-                        except IndexError:
+                        except KeyError:
                             pass
         except Exception:
             traceback.print_exc()
             logger.warning(traceback.format_exc())
             Data.failed_modules += 1
 
-def handle_plugin(pack_name: str):
+def handle_plugin(pack_name: str, client: Client):
     try:
         Data.cache.update({
             pack_name: {
                 "funcs": {},
                 "classes": {},
-                "routes": {}
+                "routes": {},
+                "initialization": None
             }
                         })
         
@@ -93,7 +116,7 @@ def handle_plugin(pack_name: str):
                 Data.failed_modules += 1
                 return
             
-            Data.description.update({pack_name: dict(md.__dict__.items())[pack_name].__description__})
+            update_command_information(dict(md.__dict__.items())[pack_name].__description__, pack_name)
         
         if hasattr(dict(md.__dict__.items())[pack_name], 'initialization'):
             if not inspect.isfunction(dict(md.__dict__.items())[pack_name].initialization):
@@ -101,7 +124,7 @@ def handle_plugin(pack_name: str):
                 Data.failed_modules += 1
                 return
             
-            Data.initializations.append(dict(md.__dict__.items())[pack_name].initialization)
+            Data.cache[pack_name]["initialization"] = dict(md.__dict__.items())[pack_name].initialization
         
         if os.path.exists(os.path.join('plugins', pack_name, 'manifest.json')):
             with open(os.path.join('plugins', pack_name, 'manifest.json'), encoding='utf-8') as f:
@@ -114,9 +137,11 @@ def handle_plugin(pack_name: str):
                 Data.cache.pop(pack_name)
                 try:
                     Data.description.pop(pack_name)
-                    Data.initializations.pop()
-                except IndexError:
+                except KeyError:
                     pass
+
+        if Data.cache.get(pack_name, {}).get("initialization", None) is not None:
+            Thread(target=Data.cache[pack_name]["initialization"], args=(client,)).start()
     except Exception:
         traceback.print_exc()
         logger.warning(traceback.format_exc())

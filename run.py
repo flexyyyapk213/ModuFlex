@@ -189,6 +189,9 @@ import asyncio
 import gc
 from time import sleep
 
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
+
 from pyrogram.client import Client
 from sqlite3 import OperationalError
 
@@ -201,6 +204,7 @@ from web import app as approute
 import base64
 
 Data.experimental = experimental
+Data.root_folder = os.path.dirname(__file__)
 
 max_retries = 10
 retry_delay = 15
@@ -208,9 +212,6 @@ retries = 0
 
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-loop = asyncio.new_event_loop()
-asyncio.set_event_loop(loop)
 
 def silence_peer_error(loop, context):
     exc = context.get("exception")

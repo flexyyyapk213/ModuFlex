@@ -1,4 +1,4 @@
-from loads import func, MainDescription, FuncDescription, Description, set_modules, private_func, Data
+from loads import func, MainDescription, FuncDescription, Description, set_modules, private_func, Data, Parameters
 
 #set_modules(['wikipedia', 'googletrans', 'gtts', 'speedtest', 'g4f'])
 
@@ -23,10 +23,11 @@ from pyrogram.types import Message
 from PIL import ImageDraw, ImageFont, Image
 import dicttoxml
 
+
 wikipedia.set_lang('ru')
 
 __description__ = Description(
-    MainDescription("Основной плагин для работы с юзер ботом"),
+    MainDescription("Основной плагин для работы с юзер ботом."),
     FuncDescription('spam', 'Спамит текст кол-во раз', parameters=('кол-во', 'текст')),
     FuncDescription('ispam', 'Спамит текст с интервалом', parameters=('интервал(в секундах)', 'кол-во', 'текст')),
     FuncDescription('rd', 'Рандомно выбирает число из диапазона', parameters=('нижняя граница', 'верхняя граница')),

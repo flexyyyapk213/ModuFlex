@@ -11,3 +11,4 @@ generated_media/
 package-lock.json
 package.json
 plugins/AIFuncs/config.json
+tests/

@@ -214,6 +214,28 @@ class Example(Module):
 
 Здесь импортируется класс `Module` который используется только для наследования. Дальше всё похоже как и с функцией, только первый параметр в `test_command` это `self`.
 
+### Удобный парсер параметров {#convenient-parser}
+
+Часто при работе с командами нужно парсить параметры из текста. Для удобства в версии `0.2.0b1` был создан класс `Parameters`: он компактно и быстро разбирает параметры по заданным регулярным выражениям, принимает список/кортеж (вернёт кортеж) или словарь (вернёт словарь с теми же ключами, где значение это результат). Просто укажите параметр `parameters` в декораторе, и результат будет в `message.parameters`. Если регулярное выражение не обнаружит строку по паттерну, значение будет `None`.
+
+Это готовое и лаконичное решение без лишнего кода.
+
+Пример:
+
+```python
+from loads import func, Parameters
+from pyrogram import types, filters
+from pyrogram.client import Client
+
+@func(filters.command('test'), parameters=Parameters(['\w+', '\d+']))
+async def parameters_in_list(client: Client, message: types.Message):
+    print(message.parameters) # ('qwerty', '123456')
+
+@func(filters.command('test'), parameters=Parameters({'a': r'\w+', 'b': r'\d+'}))
+async def parameters_in_list(client: Client, message: types.Message):
+    print(message.parameters) # {'a': 'qwerty', 'b': '123456'}
+```
+
 #### Получение объекта Client внутри класса-наследника Module
 
 Во многих случаях может понадобиться доступ к объекту `Client` внутри методов класса-наследника `Module`. Однако, объект `Client` не передаётся напрямую в конструктор (`__init__`), если не использовать инициализацию через отдельную функцию или декоратор. Ранее обойти это ограничение было сложно из-за архитектуры `main.py`.
@@ -479,19 +501,22 @@ use_botvenv = true
   ```ini
   send_message = true
   ```
-- **`ask_downloads`** – спрашивать ли подтверждение при установке сторонних библиотек.
-- - `true` – не спрашивать (автоматически устанавливает; быстрее запуск, но возможны нюансы).
-- - `false` – спрашивать(По умолчанию).
-- **`one_download_libs`** – когда устанавливать/обновлять сторонние библиотеки для модулей.
-- - `true` – только при установке модуля (не обновлять при запуске)(По умолчанию).
-- - `false` – устанавливать при запуске.
-- **`use_botvenv`** – использовать ли отдельное виртуальное окружение.
-- - `true` – использовать(По умолчанию)
-- - `false` – не использовать
+- **`ask_downloads`** – Спрашивать ли подтверждение при установке сторонних библиотек.
+- - `true` – Не спрашивать (автоматически устанавливает; быстрее запуск, но возможны нюансы).
+- - `false` – Спрашивать(По умолчанию).
+- **`one_download_libs`** – Когда устанавливать/обновлять сторонние библиотеки для модулей.
+- - `true` – Только при установке модуля (не обновлять при запуске)(По умолчанию).
+- - `false` – Устанавливать при запуске.
+- **`use_botvenv`** – Использовать ли отдельное виртуальное окружение.
+- - `true` – Использовать(По умолчанию)
+- - `false` – Не использовать
 - **`check_for_update`** – Проверять ли обновления с интервалом.
 - - `true` – Да(По умолчанию.С интервалом в 10 минут.Когда впервые обнаружится обновление, проверка отключается).
 - - `false` – Нет.
 - **`experimental`** - Использовать ли Экспериментальные функции.
+- - `true` - Да.
+- - `false` - Нет(По умолчанию).
+- **`dev_mode`** - Переходить ли в режим разработчика.
 - - `true` - Да.
 - - `false` - Нет(По умолчанию).
 
@@ -923,6 +948,13 @@ python run.py
 - Первое появление: [ModuFlex v0.1.0 2026-04-09](blog/posts/2026-04-09.md).
 - Методы:
 - - <span class="type"><span class="function">run_code</span>(self, <span class="parameter">code: </span><span class="typed">str</span>, <span class="parameter">\_globals: </span><span class="typed">Optional</span>[<span class="typed">Dict</span>]=<span class="typed">None</span>, <span class="parameter">\_locals: </span><span class="typed">Optional</span>[<span class="typed">Dict</span>]=<span class="typed">None</span>) -> <span class="typed">Dict</span>[<span class="typed">str</span>, <span class="typed">Any</span>]</span>: Выполняет код в изолированной среде. При отсутствии `node_modules` выбрасывает `FileNotFoundError`.
+
+<span class="type"><span class="moduflex">ModuFlex</span>.loads.<span class="function">Parameters</span>(self, <span class="parameter">parameters: </span><span class="Union"></span>[<span class="typed">List</span>, <span class="typed">Tuple</span>, <span class="typed">Dict</span>], <span class="parameter">re_flags: </span><span class="typed">int</span>=<span class="typed">0</span>)</span>
+
+- Описание: Класс Parameters предназначен для хранения и компиляции набора регулярных выражений, используемых для извлечения параметров из строки (например, из команды пользователя). Он удобен тем, что не нужно вручную искать параметры, которые не факт, что найдётся как должно и также, он передаётся в объект `Message` как поле `parameters`, если вы передавали нужный параметр.
+- Первое появление: [ModuFlex v0.2.0b1 2026-07-07](blog/posts/2026-07-07.md)
+- Методы:
+- - <span class="type"><span class="function">compile</span>(self, <span class="parameter">string: </span><span class="typed">str</span>) -> <span class="typed">Union</span>[<span class="typed">Tuple</span>, <span class="typed">Dict</span>]</span>: Применяет скомпилированные рег. выражения к строке, возвращая параметры.
 
 ## Ответы на частые вопросы
 

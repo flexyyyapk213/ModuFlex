@@ -82,6 +82,7 @@ def get_config_data() -> Dict[str, Any]:
     use_botvenv = re.search(r'use_botvenv\s*=\s*(true|false)', config)
     experimental = re.search(r'experimental\s*=\s*(true|false)', config)
     additional_accounts = re.search(r'accounts\s*=\s*(\[.*?\])', config, re.DOTALL)
+    dev_mode = re.search(r'dev_mode\s*=\s*(true|false)', config)
 
     get_true_false = lambda value: {'true': True, 'false': False}[value]
 
@@ -94,7 +95,8 @@ def get_config_data() -> Dict[str, Any]:
             "timeout_download_lib": int(timeout_download_lib.group(1)) if timeout_download_lib is not None else 120,
             "use_botvenv": get_true_false(use_botvenv.group(1)) if use_botvenv is not None else None,
             "experimental": get_true_false(experimental.group(1)) if experimental is not None else None,
-            "additional_accounts": json.loads(additional_accounts.group(1)) if additional_accounts is not None else None
+            "additional_accounts": json.loads(additional_accounts.group(1)) if additional_accounts is not None else None,
+            "dev_mode": get_true_false(dev_mode.group(1)) if dev_mode is not None else False
         }
     except Exception as e:
         print(e, '- Проверьте файл config.ini на наличии неправильного вида параметра.')

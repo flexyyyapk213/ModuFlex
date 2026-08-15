@@ -30,11 +30,12 @@ from pyrogram.enums import ParseMode
 from pyrogram.handlers import MessageHandler
 
 from alive_progress import alive_it, styles, alive_bar
-from handling_plugins import handling_plugins as handling_plg, handle_plugin
+from handling_plugins import handling_plugins as handling_plg, handle_plugin, HotReload
 from loads import Data, ScriptState
 from terminaltexteffects.effects.effect_decrypt import Decrypt, DecryptConfig
 from terminaltexteffects.effects.effect_rain import Rain
 from utils import merge_directories, __find_command_name__, check_update, get_config_data
+from watchdog.observers import Observer
 
 from __init__ import __modules__, __news__
 from __init__ import __version__ as this_version
@@ -96,74 +97,11 @@ def check_updates():
     elif fresh_version < version_now:
         features_of_the_version.append('you_are_tester')
 
-def handling_updates():
-    updates: Dict = Data.cache
-
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        for func in Data.initializations:
-            executor.submit(func, app)
-
-    for update in updates:
-        if not registers.get(update, False):
-            registers.update({update: {"funcs": {}, "classes": {}, "routes": {}}})
-
-        for func_name, _func in updates[update]['funcs'].items():
-            if registers[update]['funcs'].get(func_name, False):
-                continue
-            
-            if _func['command_name'] is not None:
-                if _func['command_name'] in Data.count_commands:
-                    Data.count_commands[_func['command_name']].append(update)
-                else:
-                    Data.count_commands.update({_func['command_name']: [update]})
-            
-            registers[update]['funcs'].update({func_name: _func['func']})
-        
-        for class_id, _class in updates[update]['classes'].items():
-            if registers[update]['classes'].get(class_id, False):
-                continue
-
-            registers[update]['classes'].update({class_id: {"class": _class['class'], "methods": {}}})
-
-            for method_name, method in _class['methods'].items():
-                if registers[update]['classes'][class_id]['methods'].get(method_name, {}).get('method', False) != method['method']:
-                    continue
-
-                if method['command_name'] is not None:
-                    if method['command_name'] in Data.count_commands:
-                        Data.count_commands[method['command_name']].append(update)
-                    else:
-                        Data.count_commands.update({method['command_name']: [update]})
-                
-                registers[update]['classes'][class_id]['methods'].update({method_name: method['method']})
-        
-        #NOTE: Experimental
-        if updates[update]['routes'].get('blueprint', False) and Data.experimental:
-            
-            registers[update]['routes'].update({"funcs": {}, "methods": {}})
-
-            for key, value in updates[update]['routes']['funcs'].items():
-                if registers[update]['routes']['funcs'].get(key, False):
-                    continue
-
-                updates[update]['routes']['blueprint'].add_url_rule(view_func=value['func'], **value['parameters'])
-
-                registers[update]['routes']['funcs'].update({value['func'].__name__: {"func": value['func'], "parameters": value['parameters']}})
-            
-            for method_name, method in updates[update]['routes']['methods'].items():
-                if registers[update]['routes']['methods'].get(method_name, False):
-                    continue
-
-                updates[update]['routes']['blueprint'].add_url_rule(view_func=getattr(updates[update]['classes'][method['class_id']]['class'], method['method'].__name__), **method['parameters'])
-
-                registers[update]['routes']['methods'].update({method['method'].__name__: {"method": method['method'], "class_id": method['class_id'], "parameters": method['parameters']}})
-            
-            approute.register_blueprint(updates[update]['routes']['blueprint'])
-
 async def help(_, msg: types.Message):
     help_text = ''
+    spl_txt = msg.text.split()
 
-    if len(msg.text.split()) == 1:
+    if len(spl_txt) == 1:
         help_text = 'Список плагинов:\n0) <code>ModuFlex</code>&lt;MAIN&gt;\n'
 
         plgs_desc = copy.deepcopy(Data.description)
@@ -183,8 +121,8 @@ async def help(_, msg: types.Message):
 
         if pages > int(pages): pages = int(pages) + 1
         
-        help_text += f'\n<b>Страница: 1/{pages}</b>' + '\n●Чтобы узнать о функции плагина, введите: /help {имя плагина}\n●Чтобы переходить на страницу, введите: для плагинов: /help 2, для команд: /help {имя плагина} 1'
-    elif len(msg.text.split()) == 2 and msg.text.split()[1].isnumeric():
+        help_text += f'\n<b>Страница: 1/{pages}</b>' + '\n●Чтобы узнать о функции плагина, введите: /help {имя плагина}\n●Чтобы найти плагин/команду по ключевым словам, отправьте в чат <code>/help --search &lt;выражение&gt;</code>\n●Чтобы переходить на страницу, введите: для плагинов: /help 2, для команд: /help {имя плагина} 1'
+    elif len(spl_txt) == 2 and spl_txt[1].isnumeric():
         help_text = 'Список плагинов:\n'
 
         try:
@@ -208,8 +146,42 @@ async def help(_, msg: types.Message):
             if indx >= page*30:
                 break
         
-        help_text += f'\n<b>Страница: {page}/{pages}</b>' + '\n●Чтобы узнать о функции плагина, введите: /help {имя плагина}\n●Чтобы переходить на страницу, введите: для плагинов: /help 2, для команд: /help {имя плагина} 1'
-    elif len(msg.text.split()) == 2:
+        help_text += f'\n<b>Страница: {page}/{pages}</b>' + '\n●Чтобы узнать о функции плагина, введите: /help {имя плагина}\n●Чтобы найти плагин/команду по ключевым словам, отправьте в чат <code>/help --search &lt;выражение&gt;</code>\n●Чтобы переходить на страницу, введите: для плагинов: /help 2, для команд: /help {имя плагина} 1'
+    elif len(spl_txt) >= 3 and spl_txt[1] == '--search':
+        help_text = 'Результат поиска:\n\n'
+
+        compiler = re.compile(' '.join(spl_txt[2:]), re.S)
+
+        for plugin in Data.description:
+            result = compiler.search(plugin)
+
+            if result is not None:
+                help_text += f'Имя плагина: <code>{plugin.replace(result.group(0), "<b>" + result.group(0) + "</b>")}</code>\n'
+
+            des = Data.description[plugin].main_description.description
+            res_des = compiler.search(des)
+
+            if res_des is not None:
+                help_text += f'Описание плагина <code>{plugin}</code>: ...{des[max(0, res_des.span()[0]-(11 + len(res_des.group(0)))):max(0, res_des.span()[1]-len(res_des.group(0)))]}<b>{res_des.group(0)}</b>{des[min(len(des), res_des.span()[0]+len(res_des.group(0))):min(len(des), res_des.span()[1]+(11 + len(res_des.group(0))))]}...\n'
+
+            for command in Data.description[plugin].funcs_description:
+                res_name = compiler.search(command)
+
+                if res_name is not None:
+                    help_text += f'Команда в <code>{plugin}</code>: <code>{command.replace(res_name.group(0), "<b>" + res_name.group(0) + "</b>")}</code>\n'
+
+                if Data.description[plugin].funcs_description[command].description is None:
+                    continue
+
+                cmd_des = Data.description[plugin].funcs_description[command].description
+                res_cmd_des = compiler.search(cmd_des)
+
+                if res_cmd_des is not None:
+                    help_text += f'Описание команды <code>{command}</code> в <code>{plugin}</code>: ...{cmd_des[max(0, res_cmd_des.span()[0]-(11 + len(res_cmd_des.group(0)))):max(0, res_cmd_des.span()[1]-len(res_cmd_des.group(0)))]}<b>{res_cmd_des.group(0)}</b>{cmd_des[min(len(des), res_cmd_des.span()[0]+len(res_cmd_des.group(0))):min(len(des), res_cmd_des.span()[1]+(11 + len(res_cmd_des.group(0))))]}...\n'
+
+        if len(help_text) == 19:
+            help_text += '<b>Ничего не найдено.</b>'
+    elif len(spl_txt) == 2:
         plugin = msg.text.split()[1]
         try:
             help_text = f'Описание плагина <code>{plugin}</code>:\n{dict(Data.description[plugin].__dict__)["main_description"].description}\n\nСписок функций плагина:\n'
@@ -233,8 +205,8 @@ async def help(_, msg: types.Message):
         except KeyError:
             help_text = 'Плагин не найден'
         
-        help_text += f'\n<b>Страница: 1/{int(pages)}</b>' + '\n●Чтобы узнать о функции плагина, введите: /help {имя плагина}\n●Чтобы переходить на страницу, введите: для плагинов: /help 2, для команд: /help {имя плагина} 1\n<b>{...}</b> - доступные префиксы'
-    elif len(msg.text.split()) == 3 and msg.text.split()[2].isdigit():
+        help_text += f'\n<b>Страница: 1/{int(pages)}</b>' + '\n●Чтобы узнать о функции плагина, введите: /help {имя плагина}\n●Чтобы найти плагин/команду по ключевым словам, отправьте в чат <code>/help --search &lt;выражение&gt;</code>\n●Чтобы переходить на страницу, введите: для плагинов: /help 2, для команд: /help {имя плагина} 1\n<b>{...}</b> - доступные префиксы'
+    elif len(spl_txt) == 3 and spl_txt[2].isdigit():
         plugin = msg.text.split()[1]
         try:
             help_text = f'Описание плагина <code>{plugin}</code>:\n{dict(Data.description[plugin].__dict__)["main_description"].description}\n\nСписок функций плагина:\n'
@@ -266,9 +238,9 @@ async def help(_, msg: types.Message):
         except KeyError:
             help_text = 'Плагин не найден'
         
-        help_text += f'\n<b>Страница: {page}/{int(pages)}' + '</b>\n●Чтобы узнать о функции плагина, введите: /help {имя плагина}\n●Чтобы переходить на страницу, введите: для плагинов: /help 2, для команд: /help {имя плагина} 1\n<b>{...}</b> - доступные префиксы'
+        help_text += f'\n<b>Страница: {page}/{int(pages)}' + '</b>\n●Чтобы узнать о функции плагина, введите: /help {имя плагина}\n●Чтобы найти плагин/команду по ключевым словам, отправьте в чат <code>/help --search &lt;выражение&gt;</code>\n●Чтобы переходить на страницу, введите: для плагинов: /help 2, для команд: /help {имя плагина} 1\n<b>{...}</b> - доступные префиксы'
 
-    await msg.edit_text(help_text)
+    await msg.edit_text(help_text, parse_mode=ParseMode.HTML)
 
 async def download_module(app: Client, msg: types.Message):
     await msg.edit_text('Загрузка...')
@@ -365,7 +337,7 @@ async def download_module(app: Client, msg: types.Message):
 
             shutil.rmtree(os.path.join(os.path.dirname(__file__), 'plugins', 'temp'))
 
-            handle_plugin(json_manifest["name"])
+            handle_plugin(json_manifest["name"], app)
     except Exception as e:
         logger.error(traceback.format_exc())
         
@@ -403,7 +375,7 @@ async def old_download_module(app: Client, msg: types.Message, link_path, link):
 
     os.remove(f'plugins/main.zip')
 
-    handle_plugin(main_dir)
+    handle_plugin(main_dir, app)
 
     await app.edit_message_text(msg.chat.id, msg.id, 'Плагин успешно установлен/обновлён')
 
@@ -507,33 +479,35 @@ async def update_script(app: Client, msg: types.Message):
 
 async def modu_flex_state(_, msg: types.Message):
     global send_message
+
+    config_parameters = get_config_data()
     
     with open('script.log', encoding='utf-8') as log:
-        logs_text = ''.join(log.readlines()[-3:])
+        logs_text = ''.join(log.readlines()[-30:])
     
-    await msg.edit_text(fr"""```moduflex
+    await msg.edit_text(fr"""<pre><code language=\"moduflex\">
  ____    ____  ________  
 |_   \  /   _||_   __  |
   |   \/   |    | |_ \_|
   | |\  /| |    |  _|
  _| |_\/_| |_  _| |_
 |_____||_____||_____|
-```
-```Логи
-{logs_text}
-```
+</code></pre>
+<b>Логи:</b>
+<blockquote expandable>{logs_text}</blockquote>
 Текущая версия: {this_version}
 Обновление: {there_is_update if there_is_update else 'Нету'}
 Количество плагинов: {len(Data.cache)}/{len(Data.cache) + Data.failed_modules}
 
-**Параметры**:
-    О старте отправлять: {'В избранное' if send_msg_onstart_up else 'В консоль'}
-    Установка библиотек: {'Не спрашивать' if Data.ask_downloads else 'Спрашивать'}
-    Обновлять библиотеки: {'При установке' if Data.one_download_libs else 'При запуске'}
-    Проверка обновлении: {'Да' if Data.check_for_update else 'Нет'}
-    Таймаут установки библ.: {Data.timeout_download_lib}с.
-    Экспериментальный режим: {'Да' if Data.experimental else 'Нет'}
-    """)
+<b>Параметры</b>:
+    О старте отправлять: <b>{'В избранное' if send_msg_onstart_up else 'В консоль'}</b>
+    Установка библиотек: <b>{'Не спрашивать' if Data.ask_downloads else 'Спрашивать'}</b>
+    Обновлять библиотеки: <b>{'При установке' if Data.one_download_libs else 'При запуске'}</b>
+    Проверка обновлении: <b>{'Да' if Data.check_for_update else 'Нет'}</b>
+    Таймаут установки библ.: <b>{Data.timeout_download_lib}с.</b>
+    Экспериментальный режим: <b>{'Да' if Data.experimental else 'Нет'}</b>
+    Режим разработчика: <b>{'Вкл.' if config_parameters['dev_mode'] else 'Выкл.'}</b>
+    """, parse_mode=ParseMode.HTML)
 
 async def send_update_function(app: Client, message: types.Message):
     with ThreadPoolExecutor(20) as executor:
@@ -541,15 +515,16 @@ async def send_update_function(app: Client, message: types.Message):
         plugin_name = None
         command_name = None
 
-        for pack_name in Data.cache:
-            for classes in Data.cache[pack_name]['classes'].values():
+        for pack_name, plugin_data in copy.copy(Data.cache).items():
+            for classes in plugin_data["classes"].values():
                 for _func in classes['methods'].values():
                     chat_types = {
                             "ChatType.PRIVATE": "private",
                             "ChatType.CHANNEL": "channel",
                             "ChatType.GROUP": "chat",
                             "ChatType.SUPERGROUP": "chat",
-                            "ChatType.BOT": "bot"
+                            "ChatType.BOT": "bot",
+                            "ChatType.FORUM": "forum"
                         }
                     
                     if not (_func['type'] == chat_types[str(message.chat.type)] or (_func['type'] == 'all' or _func['type'] == 'default')):
@@ -591,6 +566,13 @@ async def send_update_function(app: Client, message: types.Message):
                     if _func['filters'] is not None and not await _func['filters'](app, message):
                         continue
                     
+                    msg = copy.copy(message)
+                    
+                    if _func["parameters"] is not None:
+                        msg.parameters = _func['parameters'].compile(message.text.replace(f'{prefix if prefix is not None else ""}{"." + plugin_name if plugin_name is not None else ""}{("." + command_name if plugin_name is not None else command_name) if command_name is not None else ""}', ''))
+                    else:
+                        msg.parameters = None
+                    
                     if inspect.iscoroutinefunction(_func['method']):
                         asyncio.create_task(getattr(classes['class'], _func['method'].__name__)(app, message))
                         continue
@@ -598,13 +580,14 @@ async def send_update_function(app: Client, message: types.Message):
                         executor.submit(getattr(classes['class'], _func['method'].__name__), app, message)
                         continue
             
-            for _func in Data.cache[pack_name]['funcs'].values():
+            for _func in plugin_data["funcs"].values():
                 chat_types = {
                         "ChatType.PRIVATE": "private",
                         "ChatType.CHANNEL": "channel",
                         "ChatType.GROUP": "chat",
                         "ChatType.SUPERGROUP": "chat",
-                        "ChatType.BOT": "bot"
+                        "ChatType.BOT": "bot",
+                        "ChatType.FORUM": "forum"
                     }
                 
                 if not (_func['type'] == chat_types[str(message.chat.type)] or (_func['type'] == 'all' or _func['type'] == 'default')):
@@ -646,10 +629,20 @@ async def send_update_function(app: Client, message: types.Message):
                 if _func['filters'] is not None and not await _func['filters'](app, message):
                     continue
                 
-                if inspect.iscoroutinefunction(_func['func']):
-                    asyncio.create_task(_func['func'](app, message))
+                msg = copy.copy(message)
+                
+                if _func["parameters"] is not None:
+                    msg.parameters = _func['parameters'].compile(message.text.replace(f'{prefix if prefix is not None else ""}{"." + plugin_name if plugin_name is not None else ""}{("." + command_name if plugin_name is not None else command_name) if command_name is not None else ""}', ''))
                 else:
-                    executor.submit(_func['func'], app, message)
+                    msg.parameters = None
+
+                if not hasattr(msg, "_client"):
+                    msg._client = app
+                
+                if inspect.iscoroutinefunction(_func['func']):
+                    asyncio.create_task(_func['func'](app, msg))
+                else:
+                    executor.submit(_func['func'], app, msg)
 
 async def schedule_check_for_update(app: Client, auto_check_for_update):
     global there_is_update
@@ -712,6 +705,12 @@ class ModuFlex:
         self.app.add_handler(MessageHandler(check_plugin_for_webinterface, filters.command('webi', ['.', '/', '!']) & filters.me))
         self.app.add_handler(MessageHandler(self.all_messages))
 
+        if self.is_basic and get_config_data()["dev_mode"]:
+            self.hot_reload = HotReload(self.app)
+            self.observer = Observer()
+            self.observer.schedule(self.hot_reload, path=os.path.abspath('./plugins'), recursive=True)
+            self.observer.start()
+
         self.check_updates()
 
         msgs = []
@@ -762,6 +761,8 @@ class ModuFlex:
 
             if _date == datetime.today().date():
                 Data.skip_downloads = True
+            else:
+                pass
         
         Data.__save_config__()
         
@@ -828,6 +829,8 @@ class ModuFlex:
 
         self.is_init = True
 
+        Data.skip_downloads = True
+
         while self.stop == ScriptState.started:
             await asyncio.sleep(1)
 
@@ -879,67 +882,67 @@ class ModuFlex:
         updates: Dict = Data.cache
 
         with ThreadPoolExecutor(max_workers=10) as executor:
-            for func in Data.initializations:
-                executor.submit(func, self.app)
+            for update in updates:
+                if not self.registers.get(update, False):
+                    if updates[update]["initialization"] is not None:
+                        executor.submit(updates[update]["initialization"], self.app)
 
-        for update in updates:
-            if not self.registers.get(update, False):
-                self.registers.update({update: {"funcs": {}, "classes": {}, "routes": {}}})
+                    self.registers.update({update: {"funcs": {}, "classes": {}, "routes": {}}})
 
-            for func_name, _func in updates[update]['funcs'].items():
-                if self.registers[update]['funcs'].get(func_name, False):
-                    continue
-                
-                if _func['command_name'] is not None and self.is_basic:
-                    if _func['command_name'] in Data.count_commands:
-                        Data.count_commands[_func['command_name']].append(update)
-                    else:
-                        Data.count_commands.update({_func['command_name']: [update]})
-                
-                self.registers[update]['funcs'].update({func_name: _func['func']})
-            
-            for class_id, _class in updates[update]['classes'].items():
-                if self.registers[update]['classes'].get(class_id, False):
-                    continue
-
-                _class['class'](self.app)
-                
-                self.registers[update]['classes'].update({class_id: {"class": _class['class'], "methods": {}}})
-                
-                for method_name, method in _class['methods'].items():
-                    if self.registers[update]['classes'][class_id]['methods'].get(method_name, {}).get('method', False):
+                for func_name, _func in updates[update]['funcs'].items():
+                    if self.registers[update]['funcs'].get(func_name, False):
                         continue
                     
-                    if method['command_name'] is not None and self.is_basic:
-                        if method['command_name'] in Data.count_commands:
-                            Data.count_commands[method['command_name']].append(update)
+                    if _func['command_name'] is not None and self.is_basic:
+                        if _func['command_name'] in Data.count_commands:
+                            Data.count_commands[_func['command_name']].append(update)
                         else:
-                            Data.count_commands.update({method['command_name']: [update]})
+                            Data.count_commands.update({_func['command_name']: [update]})
                     
-                    self.registers[update]['classes'][class_id]['methods'].update({method_name: method['method']})
-            
-            #NOTE: Experimental
-            if updates[update]['routes'].get('blueprint', False) and Data.experimental and self.is_basic:
+                    self.registers[update]['funcs'].update({func_name: _func['func']})
                 
-                self.registers[update]['routes'].update({"funcs": {}, "methods": {}})
-
-                for key, value in updates[update]['routes']['funcs'].items():
-                    if self.registers[update]['routes']['funcs'].get(key, False):
+                for class_id, _class in updates[update]['classes'].items():
+                    if self.registers[update]['classes'].get(class_id, False):
                         continue
 
-                    updates[update]['routes']['blueprint'].add_url_rule(view_func=value['func'], **value['parameters'])
-
-                    self.registers[update]['routes']['funcs'].update({value['func'].__name__: {"func": value['func'], "parameters": value['parameters']}})
+                    _class['class'](self.app)
+                    
+                    self.registers[update]['classes'].update({class_id: {"class": _class['class'], "methods": {}}})
+                    
+                    for method_name, method in _class['methods'].items():
+                        if self.registers[update]['classes'][class_id]['methods'].get(method_name, {}).get('method', False):
+                            continue
+                        
+                        if method['command_name'] is not None and self.is_basic:
+                            if method['command_name'] in Data.count_commands:
+                                Data.count_commands[method['command_name']].append(update)
+                            else:
+                                Data.count_commands.update({method['command_name']: [update]})
+                        
+                        self.registers[update]['classes'][class_id]['methods'].update({method_name: method['method']})
                 
-                for method_name, method in updates[update]['routes']['methods'].items():
-                    if registers[update]['routes']['methods'].get(method_name, False):
-                        continue
+                #NOTE: Experimental
+                if updates[update]['routes'].get('blueprint', False) and Data.experimental and self.is_basic:
+                    
+                    self.registers[update]['routes'].update({"funcs": {}, "methods": {}})
 
-                    updates[update]['routes']['blueprint'].add_url_rule(view_func=getattr(updates[update]['classes'][method['class_id']]['class'], method['method'].__name__), **method['parameters'])
+                    for key, value in updates[update]['routes']['funcs'].items():
+                        if self.registers[update]['routes']['funcs'].get(key, False):
+                            continue
 
-                    self.registers[update]['routes']['methods'].update({method['method'].__name__: {"method": method['method'], "class_id": method['class_id'], "parameters": method['parameters']}})
-                
-                if self.is_basic: self.approute.register_blueprint(updates[update]['routes']['blueprint'])
+                        updates[update]['routes']['blueprint'].add_url_rule(view_func=value['func'], **value['parameters'])
+
+                        self.registers[update]['routes']['funcs'].update({value['func'].__name__: {"func": value['func'], "parameters": value['parameters']}})
+                    
+                    for method_name, method in updates[update]['routes']['methods'].items():
+                        if registers[update]['routes']['methods'].get(method_name, False):
+                            continue
+
+                        updates[update]['routes']['blueprint'].add_url_rule(view_func=getattr(updates[update]['classes'][method['class_id']]['class'], method['method'].__name__), **method['parameters'])
+
+                        self.registers[update]['routes']['methods'].update({method['method'].__name__: {"method": method['method'], "class_id": method['class_id'], "parameters": method['parameters']}})
+                    
+                    if self.is_basic: self.approute.register_blueprint(updates[update]['routes']['blueprint'])
     
     async def _stop(self, _, message: types.Message):
         self.stop = ScriptState.exit
