@@ -25,6 +25,6 @@ jobs:
 
       - name: Run Release Notifier Script
         env:
-          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         run: |
           python send_notification.py
