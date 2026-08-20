@@ -51,39 +51,50 @@ if experimental is not None: experimental = {'true': True, 'false': False}[exper
 if timeout_download_lib is not None: timeout_download_lib = int(timeout_download_lib.group(1))
 else: timeout_download_lib = 120
 
-# Run with botvenv
-if list(venv_path.parts)[-3] != 'botvenv' and use_botvenv:
+def install_venv():
+    venv_path = Path(sys.executable)
+
+    if 'botvenv' in venv_path.parts:
+        return
+
     path_to_bot = Path(__file__)
 
     folders = [entry.name for entry in os.scandir(path_to_bot.parents[0]) if entry.is_dir()]
 
     if 'botvenv' not in folders:
-        if importlib.util.find_spec('venv') is None:
-            subprocess.run([sys.executable, '-m', 'pip', 'install', 'venv'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            subprocess.run([sys.executable, '-m', 'venv', 'botvenv'], check=True)
+        except Exception:
+            print('\033[33mНе удалось создать botvenv.Дальнейшая работа будет производится без виртуального окружения.\033[0m')
+            return
 
-        subprocess.run([sys.executable, '-m', 'venv', 'botvenv'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-    path_to_botvenv = Path(__file__)
+    path_to_botvenv = path_to_bot.parent / 'botvenv'
 
     if sys.platform == 'win32':
-        if (path_to_botvenv.parents[0] / 'botvenv' / 'Scripts').exists() and (path_to_botvenv.parents[0] / 'botvenv' / 'Scripts' / 'python.exe').is_file():
-            python_exc = [str(path_to_bot.parents[0] / 'botvenv' / 'Scripts' / 'python.exe'), str(path_to_bot.parents[0] / 'run.py')]
+        python_exc = path_to_botvenv / 'Scripts' / 'python.exe'
     else:
-        if (path_to_botvenv.parents[0] / 'botvenv' / 'bin').exists() and (path_to_botvenv.parents[0] / 'botvenv' / 'bin' / 'python').is_file():
-            python_exc = [str(path_to_bot.parents[0] / 'botvenv' / 'bin' / 'python'), str(path_to_bot.parents[0] / 'run.py')]
+        python_exc = path_to_botvenv / 'bin' / 'python'
+
+    if not python_exc.exists():
+        try:
+            subprocess.run([sys.executable, '-m', 'venv', 'botvenv'], check=True)
+        except Exception:
+            print('\033[33mНе удалось создать botvenv.Дальнейшая работа будет производится без виртуального окружения.\033[0m')
+            return
 
     try:
-        subprocess.run(python_exc, check=True)
+        # Run with botvenv
+        subprocess.run([str(python_exc), sys.argv[0]], check=True)
 
         sys.exit()
-    except PermissionError:
-        print('\033[33mНе удалось создать botvenv.Дальнейшая работа будет производится без виртуального окружения.\033[0m')
-    except FileNotFoundError:
-        pass
-    except NameError:
+    except (PermissionError, FileNotFoundError, NameError):
         print('\033[33mНе удалось создать botvenv.Дальнейшая работа будет производится без виртуального окружения.\033[0m')
     except Exception as e:
         print(e)
+
+# Run with botvenv
+if use_botvenv:
+    install_venv()
 
 from __init__ import __modules__
 

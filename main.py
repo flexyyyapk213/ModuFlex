@@ -698,7 +698,7 @@ class ModuFlex:
         self.app.add_handler(MessageHandler(help, filters.command('help', ['.', '/', '!']) & filters.me))
         self.app.add_handler(MessageHandler(download_module, filters.command('dwplg', ['.', '/', '!']) & filters.me))
         self.app.add_handler(MessageHandler(remove_plugin, filters.command('rmplg', ['.', '/', '!']) & filters.me))
-        self.app.add_handler(MessageHandler(update_script, filters.command('update', ['.', '/', '!']) & filters.me))
+        self.app.add_handler(MessageHandler(self.update_script, filters.command('update', ['.', '/', '!']) & filters.me))
         self.app.add_handler(MessageHandler(modu_flex_state, filters.command('moduflex', ['.', '/', '!']) & filters.me))
         self.app.add_handler(MessageHandler(self._stop, filters.command('stop', ['.', '/', '!']) & filters.me))
         self.app.add_handler(MessageHandler(self._restart, filters.command('restart', ['.', '/', '!']) & filters.me))
@@ -957,3 +957,74 @@ class ModuFlex:
     async def all_messages(self, app: Client, message: types.Message):
         if not self.is_init: return
         asyncio.gather(send_update_function(app, message))
+
+    async def update_script(self, app: Client, msg: types.Message):
+        await msg.edit('Проверка обновлений...')
+        
+        _checking = check_update(this_version)
+        
+        if _checking[0]:
+            await msg.edit(f'Обновление найдено, версия: {_checking[1]}, установка...')
+
+            # Ссылка на официальный источник, так что вирусов не должно быть, нужно детально проверять ссылку(так же самое и в плагинах)
+            link = 'https://github.com/flexyyyapk213/ModuFlex/archive/refs/heads/main.zip'
+
+            try:
+                with open(f'temp/main.zip', 'wb') as f:
+                    with requests.get(link, stream=True) as r:
+                        for chunk in alive_it(r.iter_content(chunk_size=512), title='Загрузка обновления', spinner=styles.SPINNERS['pulse'], theme='smooth'):
+                            f.write(chunk)
+            except FileNotFoundError:
+                os.mkdir("temp")
+
+                return await update_script(app, msg)
+            
+            with zipfile.ZipFile(f'temp/main.zip', 'r') as zip_ref:
+                zip_ref.extractall('temp')
+            
+            dir_name = zip_ref.namelist()[0]
+
+            _file_name = os.listdir(f'temp/{dir_name}')
+
+            spec = importlib.util.spec_from_file_location("__init__", f'temp/{dir_name}/__init__.py')
+            version = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(version)
+
+            await asyncio.sleep(0.5)
+
+            for module in alive_it(version.__modules__, title='Установка модулей', spinner=styles.SPINNERS['pulse'], theme='smooth'):
+                if importlib.util.find_spec(module) is None:
+                    subprocess.run([sys.executable, 'install', module], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            for fl_name in _file_name:
+                try:
+                    if os.path.exists(fl_name) and os.path.isfile(os.path.join('temp', dir_name, fl_name)):
+                        os.remove(fl_name)
+                        shutil.move(os.path.join('temp', dir_name, fl_name), '.')
+                    elif os.path.exists(fl_name) and os.path.isdir(os.path.join('temp', dir_name, fl_name)):
+                        shutil.copytree(os.path.join('temp', dir_name, fl_name), fl_name, dirs_exist_ok=True)
+                    else:
+                        shutil.move(os.path.join('temp', dir_name, fl_name), '.')
+                except Exception as e:
+                    print(e)
+
+            for fil_name in os.listdir('temp'):
+                try:
+                    if os.path.isdir('temp/'+fil_name):
+                        shutil.rmtree('temp/'+fil_name)
+                        continue
+
+                    os.remove('temp/'+fil_name)
+                except OSError:
+                    pass
+                
+                except Exception as e:
+                    print(e)
+
+            Data.config['ModuFlex']['libs_is_dwnld'] = False
+            
+            await msg.edit(f'Обновление успешно установлено\n{version.__news__}\nПерезапуск скрипта...', parse_mode=ParseMode.MARKDOWN)
+
+            self.stop = ScriptState.restart
+        else:
+            await msg.edit('Обновление не найдено')

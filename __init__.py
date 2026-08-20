@@ -1,12 +1,13 @@
 __name__ = 'ModuFlex'
-__version__ = '0.2.0b2'
+__version__ = '0.2.0b3'
 __author__ = 'flexyyy'
 __link__ = 'https://t.me/flexyyyapk'
 __gitHub__ = 'https://github.com/flexyyyapk213/ModuFlex'
-__news__ = """✨Обновление 0.2.0b2
+__news__ = """✨Обновление 0.2.0b3
 
 ```✦ Что нового?
-- Тест авто-рассылки.
+- Исправлено обновления скрипта (теперь точно будет нормально).
+- Исправлен файл version_rollback.py
 ```
 """
 __python__ = '>=3.8'

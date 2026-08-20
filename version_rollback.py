@@ -65,31 +65,64 @@ def update_script(version: str):
     os.remove(f'temp/v{version.replace(".", "-")}.zip')
     shutil.rmtree(f'temp/{dir_name}')
 
+def install_venv():
+    venv_path = Path(sys.executable)
+
+    if 'botvenv' in venv_path.parts:
+        return
+
+    path_to_bot = Path(__file__)
+
+    folders = [entry.name for entry in os.scandir(path_to_bot.parents[0]) if entry.is_dir()]
+
+    if 'botvenv' not in folders:
+        try:
+            subprocess.run([sys.executable, '-m', 'venv', 'botvenv'], check=True)
+        except Exception:
+            print('\033[33mНе удалось создать botvenv.Дальнейшая работа будет производится без виртуального окружения.\033[0m')
+            return
+
+    path_to_botvenv = path_to_bot.parent / 'botvenv'
+
+    if sys.platform == 'win32':
+        python_exc = path_to_botvenv / 'Scripts' / 'python.exe'
+    else:
+        python_exc = path_to_botvenv / 'bin' / 'python'
+
+    if not python_exc.exists():
+        try:
+            subprocess.run([sys.executable, '-m', 'venv', 'botvenv'], check=True)
+        except Exception:
+            print('\033[33mНе удалось создать botvenv.Дальнейшая работа будет производится без виртуального окружения.\033[0m')
+            return
+
+    try:
+        # Run with botvenv
+        subprocess.run([str(python_exc), sys.argv[0]], check=True)
+
+        sys.exit()
+    except (PermissionError, FileNotFoundError, NameError):
+        print('\033[33mНе удалось создать botvenv.Дальнейшая работа будет производится без виртуального окружения.\033[0m')
+    except Exception as e:
+        print(e)
+
 if __name__ == "__main__":
-    from alive_progress import alive_it, styles
     # Go to the script root folder
     if os.getcwd() != script_dir:
         os.chdir(script_dir)
 
-    venv_path = Path(sys.executable)
-
-    # Run with botvenv
-    if list(venv_path.parts)[-3] != 'botvenv':
-        path_to_bot = Path(__file__)
-
-        folders = [entry.name for entry in os.scandir(path_to_bot.parents[0]) if entry.is_dir()]
-
-        if 'botvenv' in folders:
-            if importlib.util.find_spec('venv') is None:
-                subprocess.run([sys.executable, '-m', 'pip', 'install', 'venv'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-            subprocess.run([sys.executable, '-m', 'venv', 'botvenv'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            sys.exit()
+    install_venv()
 
     if importlib.util.find_spec('alive_progress') is None:
         subprocess.run([sys.executable, '-m', 'pip', 'install', 'alive-progress'])
 
-    version = input("Введите версию(без префикса v): ")
+    from alive_progress import alive_it, styles
+
+    try:
+        version = input("Введите версию(без префикса v): ")
+    except KeyboardInterrupt:
+        print('<3')
+        sys.exit()
 
     update_script(version)
 
