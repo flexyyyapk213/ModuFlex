@@ -430,7 +430,7 @@ async def update_script(app: Client, msg: types.Message):
         with zipfile.ZipFile(f'temp/main.zip', 'r') as zip_ref:
             zip_ref.extractall('temp')
         
-        dir_name = zip_ref.namelist[0]
+        dir_name = zip_ref.namelist()[0]
 
         _file_name = os.listdir(f'temp/{dir_name}')
 

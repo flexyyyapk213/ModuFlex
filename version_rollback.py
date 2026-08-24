@@ -45,15 +45,9 @@ def update_script(version: str):
 
     root_folders = os.listdir('temp')
 
-    for file_name in root_folders:
-        if os.path.isdir('temp/'+file_name):
-            dir_name = file_name
-            break
+    dir_name = zip_ref.namelist()[0]
 
     for fl_name in os.listdir(f'temp/{dir_name}'):
-        if fl_name == 'version_rollback.py':
-            continue # На случай, если возникнут непредвиденные ошибки с откатом.Тогда можно откатиться снова и этот файл не заденет
-
         if os.path.exists(fl_name) and os.path.isfile(os.path.join('temp', dir_name, fl_name)):
             os.remove(fl_name)
             shutil.move(os.path.join('temp', dir_name, fl_name), '.')
