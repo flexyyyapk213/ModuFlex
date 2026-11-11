@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -29,7 +29,7 @@
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
@@ -748,7 +748,18 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Регистрация через метод в классе">
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#convenient-parser" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Удобный парсер параметров
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Удобный парсер параметров">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1744,22 +1755,38 @@
 </span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Здесь импортируется класс <code>Module</code> который используется только для наследования. Дальше всё похоже как и с функцией, только первый параметр в <code>test_command</code> это <code>self</code>.</p>
+<h3 id="convenient-parser">Удобный парсер параметров</h3>
+<p>Часто при работе с командами нужно парсить параметры из текста. Для удобства в версии <code>0.2.0b1</code> был создан класс <code>Parameters</code>: он компактно и быстро разбирает параметры по заданным регулярным выражениям, принимает список/кортеж (вернёт кортеж) или словарь (вернёт словарь с теми же ключами, где значение это результат). Просто укажите параметр <code>parameters</code> в декораторе, и результат будет в <code>message.parameters</code>. Если регулярное выражение не обнаружит строку по паттерну, значение будет <code>None</code>.</p>
+<p>Это готовое и лаконичное решение без лишнего кода.</p>
+<p>Пример:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">loads</span><span class="w"> </span><span class="kn">import</span> <span class="n">func</span><span class="p">,</span> <span class="n">Parameters</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyrogram</span><span class="w"> </span><span class="kn">import</span> <span class="n">types</span><span class="p">,</span> <span class="n">filters</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyrogram.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="nd">@func</span><span class="p">(</span><span class="n">filters</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s1">&#39;test&#39;</span><span class="p">),</span> <span class="n">parameters</span><span class="o">=</span><span class="n">Parameters</span><span class="p">([</span><span class="s1">&#39;\w+&#39;</span><span class="p">,</span> <span class="s1">&#39;\d+&#39;</span><span class="p">]))</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">parameters_in_list</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">Client</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">types</span><span class="o">.</span><span class="n">Message</span><span class="p">):</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span> <span class="c1"># (&#39;qwerty&#39;, &#39;123456&#39;)</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="nd">@func</span><span class="p">(</span><span class="n">filters</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s1">&#39;test&#39;</span><span class="p">),</span> <span class="n">parameters</span><span class="o">=</span><span class="n">Parameters</span><span class="p">({</span><span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="sa">r</span><span class="s1">&#39;\w+&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">:</span> <span class="sa">r</span><span class="s1">&#39;\d+&#39;</span><span class="p">}))</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">parameters_in_dict</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">Client</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">types</span><span class="o">.</span><span class="n">Message</span><span class="p">):</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span> <span class="c1"># {&#39;a&#39;: &#39;qwerty&#39;, &#39;b&#39;: &#39;123456&#39;}</span>
+</span></code></pre></div>
 <h4 id="client-module">Получение объекта Client внутри класса-наследника Module</h4>
 <p>Во многих случаях может понадобиться доступ к объекту <code>Client</code> внутри методов класса-наследника <code>Module</code>. Однако, объект <code>Client</code> не передаётся напрямую в конструктор (<code>__init__</code>), если не использовать инициализацию через отдельную функцию или декоратор. Ранее обойти это ограничение было сложно из-за архитектуры <code>main.py</code>.</p>
 <p>Начиная с версии <code>0.1.0</code>, появилась более удобная возможность получить объект <code>Client</code> без дополнительных костылей. Для этого в своём классе необходимо реализовать вспомогательный метод <code>__call__</code>. Пример:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">loads</span><span class="w"> </span><span class="kn">import</span> <span class="n">func</span><span class="p">,</span> <span class="n">Module</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyrogram</span><span class="w"> </span><span class="kn">import</span> <span class="n">filters</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyrogram.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">Example</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="nd">@func</span><span class="p">(</span><span class="n">filters</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s1">&#39;test&#39;</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">filters</span><span class="o">.</span><span class="n">me</span><span class="p">)</span>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">test_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>        <span class="o">...</span>
-</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>
-</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>  <span class="c1"># вспомогательный метод</span>
-</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
-</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">Client</span><span class="p">):</span>
-</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>                <span class="o">...</span> <span class="c1"># Здесь вы получаете объект Client</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">loads</span><span class="w"> </span><span class="kn">import</span> <span class="n">func</span><span class="p">,</span> <span class="n">Module</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyrogram</span><span class="w"> </span><span class="kn">import</span> <span class="n">filters</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyrogram.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">Example</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    <span class="nd">@func</span><span class="p">(</span><span class="n">filters</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s1">&#39;test&#39;</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">filters</span><span class="o">.</span><span class="n">me</span><span class="p">)</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">test_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>        <span class="o">...</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>  <span class="c1"># вспомогательный метод</span>
+</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">Client</span><span class="p">):</span>
+</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>                <span class="o">...</span> <span class="c1"># Здесь вы получаете объект Client</span>
 </span></code></pre></div>
 <p>Этот вспомогательный метод будет вызван при регистрации функций, классов и методов, т.е. инициализированный объект класса вызовется как функция и получит в аргументах объект <code>Client</code>. Таким образом, здесь вы можете получить доступ к текущему клиенту без необходимости дополнительных параметров.</p>
 <p>Можно также не использовать <code>*args</code> и <code>**kwargs</code>, если дополнительное взаимодействие с этим методом вам не нужно.</p>
@@ -1770,8 +1797,8 @@
 <p>Чтобы подключится к локальному сайту, обычно нужно перейти к 127.0.0.1:1205, а чтобы перейти к интерфейсу плагина, нужно добавить в поле адреса <code>ИмяПлагина/</code>.</p>
 <h4 id="_14">Структура папок</h4>
 <p>В корне вашего плагина необходимо создать две папки:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>templates/
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>static/
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>templates/
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>static/
 </span></code></pre></div>
 <ul>
 <li><strong>templates</strong> — хранение HTML-шаблонов</li>
@@ -1782,9 +1809,9 @@
 </blockquote>
 <h5 id="templates">Подпапка в templates (обязательно)</h5>
 <p>Внутри папки <code>templates</code> <strong>обязательно</strong> создайте подпапку с именем вашего плагина:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>templates/
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>└─ my_plugin/
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    └─ index.html
+<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>templates/
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>└─ my_plugin/
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    └─ index.html
 </span></code></pre></div>
 <p>Это необходимо для предотвращения конфликтов между плагинами.</p>
 <h5 id="_15">Почему это важно</h5>
@@ -1794,14 +1821,14 @@
 <h4 id="css-js-html">Подключение CSS / JS в HTML</h4>
 <p>Для корректного подключения файлов из папки <code>static</code> используйте функцию <code>url_for</code>.</p>
 <p>Пример подключения CSS и JS(и для остального) в <code>&lt;head&gt;</code> HTML-файла:</p>
-<div class="language-html highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">&lt;</span><span class="nt">link</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>  <span class="na">rel</span><span class="o">=</span><span class="s">&quot;stylesheet&quot;</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>  <span class="na">href</span><span class="o">=</span><span class="s">&quot;{{ url_for(&#39;ИмяПлагина.static&#39;, filename=&#39;styles.css&#39;) }}&quot;</span>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="p">/&gt;</span>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="p">&lt;</span><span class="nt">script</span>
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>  <span class="na">src</span><span class="o">=</span><span class="s">&quot;{{ url_for(&#39;ИмяПлагина.static&#39;, filename=&#39;script.js&#39;) }}&quot;</span>
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>  <span class="na">defer</span>
-</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="p">&gt;&lt;/</span><span class="nt">script</span><span class="p">&gt;</span>
+<div class="language-html highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">&lt;</span><span class="nt">link</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>  <span class="na">rel</span><span class="o">=</span><span class="s">&quot;stylesheet&quot;</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>  <span class="na">href</span><span class="o">=</span><span class="s">&quot;{{ url_for(&#39;ИмяПлагина.static&#39;, filename=&#39;styles.css&#39;) }}&quot;</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="p">/&gt;</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="p">&lt;</span><span class="nt">script</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>  <span class="na">src</span><span class="o">=</span><span class="s">&quot;{{ url_for(&#39;ИмяПлагина.static&#39;, filename=&#39;script.js&#39;) }}&quot;</span>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>  <span class="na">defer</span>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="p">&gt;&lt;/</span><span class="nt">script</span><span class="p">&gt;</span>
 </span></code></pre></div>
 <p>Где:</p>
 <ul>
@@ -1809,10 +1836,10 @@
 <li><code>filename</code> — путь к файлу внутри папки <code>static</code></li>
 </ul>
 <p>Пример структуры папки <code>static</code>:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>static/
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>├─ styles.css
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>├─ script.js
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>└─ image.png
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>static/
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>├─ styles.css
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>├─ script.js
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>└─ image.png
 </span></code></pre></div>
 <blockquote>
 <p>Создавать подпапку с именем плагина внутри <code>static</code> <strong>не нужно</strong>.</p>
@@ -1820,19 +1847,19 @@
 <h4 id="route">Создание маршрута (route)</h4>
 <p>Для обработки запросов необходимо создать маршрут с помощью декоратора <code>route</code> из <code>loads</code>.</p>
 <h5 id="_16">Вариант с классом</h5>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">loads</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span><span class="p">,</span> <span class="n">route</span>
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>
-</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">Example</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
-</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    <span class="nd">@route</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
-</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>        <span class="k">pass</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">loads</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span><span class="p">,</span> <span class="n">route</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">Example</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    <span class="nd">@route</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>        <span class="k">pass</span>
 </span></code></pre></div>
 <h5 id="_17">Вариант с функцией</h5>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">loads</span><span class="w"> </span><span class="kn">import</span> <span class="n">route</span>
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
-</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="nd">@route</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
-</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test</span><span class="p">():</span>
-</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    <span class="k">pass</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">loads</span><span class="w"> </span><span class="kn">import</span> <span class="n">route</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="nd">@route</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test</span><span class="p">():</span>
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>    <span class="k">pass</span>
 </span></code></pre></div>
 <blockquote>
 <p>Декоратор route имеет точно такие же параметры как и в обычном Quart/Flask</p>
@@ -1840,12 +1867,12 @@
 <h4 id="html-">Рендер HTML-шаблона</h4>
 <p>Для возврата HTML-страницы используйте <code>render_template</code> из Quart.</p>
 <p>Важно: путь к шаблону <strong>всегда указывается с именем плагина</strong>.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quart</span><span class="w"> </span><span class="kn">import</span> <span class="n">render_template</span>
-</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">loads</span><span class="w"> </span><span class="kn">import</span> <span class="n">route</span>
-</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>
-</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="nd">@route</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
-</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test</span><span class="p">():</span>
-</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>    <span class="k">return</span> <span class="k">await</span> <span class="n">render_template</span><span class="p">(</span><span class="s1">&#39;ИмяПлагина/index.html&#39;</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quart</span><span class="w"> </span><span class="kn">import</span> <span class="n">render_template</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">loads</span><span class="w"> </span><span class="kn">import</span> <span class="n">route</span>
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="nd">@route</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test</span><span class="p">():</span>
+</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    <span class="k">return</span> <span class="k">await</span> <span class="n">render_template</span><span class="p">(</span><span class="s1">&#39;ИмяПлагина/index.html&#39;</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Это связано с тем, что Quart использует глобальное пространство шаблонов.</p>
 <h4 id="quart">Особенности Quart</h4>
@@ -1889,28 +1916,28 @@
 </ul>
 <p>Использования песочницы очень важно, так как это безопасно для пользователей.</p>
 <p>Пример его применения:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">loads</span><span class="w"> </span><span class="kn">import</span> <span class="n">sandbox_exec</span><span class="p">,</span> <span class="n">func</span>
-</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>
-</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="c1"># ... Декоратор</span>
-</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">running_code</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">__</span><span class="p">):</span>
-</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">sandbox_exec</span><span class="p">(</span><span class="s2">&quot;print(&#39;Hello world!&#39;)&quot;</span><span class="p">)</span>
-</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    <span class="c1"># sandbox_exec(&quot;print(x)&quot;, _globals={&quot;x&quot;: 10})</span>
-</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Консоль: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">]</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">loads</span><span class="w"> </span><span class="kn">import</span> <span class="n">sandbox_exec</span><span class="p">,</span> <span class="n">func</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="c1"># ... Декоратор</span>
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">running_code</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">__</span><span class="p">):</span>
+</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">sandbox_exec</span><span class="p">(</span><span class="s2">&quot;print(&#39;Hello world!&#39;)&quot;</span><span class="p">)</span>
+</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>    <span class="c1"># sandbox_exec(&quot;print(x)&quot;, _globals={&quot;x&quot;: 10})</span>
+</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Консоль: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">]</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Импортируем из <code>loads</code> функцию <code>sandbox_exec</code> который выполняет предоставленный код с глобальными и/или локальными переменными.</p>
 <p><code>sandbox_exec</code> возвращает словарь, в котором хранится информация о выполнении кода.</p>
 <h2 id="manifest">Файл manifest плагина</h2>
 <p>Если вы собираетесь выпускать ваш плагин в общий доступ для скачивания, вам нужно сделать файл в корне плагина - <code>manifest.json</code>. Это обязательный файл с информацией о вашем плагине. Без него пользователи не смогут установить ваш плагин через автоматическую загрузку.</p>
 <p>Вот пример содержимого файла:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="p">{</span>
-</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;StartedPack&quot;</span><span class="p">,</span>
-</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
-</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="w">  </span><span class="nt">&quot;mf_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&gt;=0.1.0b2&quot;</span><span class="p">,</span>
-</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Краткое описание предназначения плагина или его нововведений (до ~4096 символов, поддерживается markdown формат Telegram).&quot;</span><span class="p">,</span>
-</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="w">  </span><span class="nt">&quot;author&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;flexyyy&quot;</span><span class="p">,</span>
-</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="w">  </span><span class="nt">&quot;tags&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;main&quot;</span><span class="p">],</span>
-</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="w">  </span><span class="nt">&quot;repository&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;empty link&quot;</span>
-</span><span id="__span-22-9"><a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="p">{</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;StartedPack&quot;</span><span class="p">,</span>
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="w">  </span><span class="nt">&quot;mf_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&gt;=0.1.0b2&quot;</span><span class="p">,</span>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Краткое описание предназначения плагина или его нововведений (до ~4096 символов, поддерживается markdown формат Telegram).&quot;</span><span class="p">,</span>
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="w">  </span><span class="nt">&quot;author&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;flexyyy&quot;</span><span class="p">,</span>
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="w">  </span><span class="nt">&quot;tags&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;main&quot;</span><span class="p">],</span>
+</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="w">  </span><span class="nt">&quot;repository&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;empty link&quot;</span>
+</span><span id="__span-23-9"><a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Подробнее о ключах и их значения:</p>
 <ul>
@@ -1925,13 +1952,13 @@
 <h2 id="_19">Файл конфигурации</h2>
 <p>Для того, чтобы юзербот заработал, нужно создать файл <code>config.ini</code> в корне папки ModuFlex, вставить свои данные от аккаунта Telegram и тогда запустить. Иначе ничего не получиться.</p>
 <p>Вставьте такой шаблон в файл:</p>
-<div class="language-ini highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="na">api_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">12345679</span>
-</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="na">api_hash</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;...&quot;</span>
-</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="na">phone_number</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">7123456</span>
-</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="na">password</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;...&quot;</span>
-</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="na">send_message</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">true</span>
-</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="na">one_download_libs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">true</span>
-</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="na">use_botvenv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">true</span>
+<div class="language-ini highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="na">api_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">12345679</span>
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="na">api_hash</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;...&quot;</span>
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="na">phone_number</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">7123456</span>
+</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="na">password</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;...&quot;</span>
+</span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="na">send_message</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">true</span>
+</span><span id="__span-24-6"><a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a><span class="na">one_download_libs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">true</span>
+</span><span id="__span-24-7"><a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a><span class="na">use_botvenv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">true</span>
 </span></code></pre></div>
 <p>Замените <strong><code>api_id</code></strong>, <strong><code>api_hash</code></strong>, <strong><code>phone_number</code></strong> и/или <code>passowrd</code> на ваши данные от аккаунта.</p>
 <p>Подробнее о параметрах:</p>
@@ -1952,7 +1979,7 @@
 <li>
 <ul>
 <li>Пример:
-  <div class="language-ini highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="na">password</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;&quot;</span>
+  <div class="language-ini highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="na">password</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;&quot;</span>
 </span></code></pre></div></li>
 </ul>
 </li>
@@ -1965,7 +1992,7 @@
 <li>
 <ul>
 <li>Пример:
-  <div class="language-ini highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="na">timeout_download_lib</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">90</span>
+  <div class="language-ini highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="na">timeout_download_lib</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">90</span>
 </span></code></pre></div></li>
 </ul>
 </li>
@@ -1986,41 +2013,41 @@
 <li>
 <ul>
 <li>Пример:
-  <div class="language-ini highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="na">send_message</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">true</span>
+  <div class="language-ini highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="na">send_message</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">true</span>
 </span></code></pre></div></li>
 </ul>
 </li>
-<li><strong><code>ask_downloads</code></strong> – спрашивать ли подтверждение при установке сторонних библиотек.</li>
+<li><strong><code>ask_downloads</code></strong> – Спрашивать ли подтверждение при установке сторонних библиотек.</li>
 <li>
 <ul>
-<li><code>true</code> – не спрашивать (автоматически устанавливает; быстрее запуск, но возможны нюансы).</li>
+<li><code>true</code> – Не спрашивать (автоматически устанавливает; быстрее запуск, но возможны нюансы).</li>
 </ul>
 </li>
 <li>
 <ul>
-<li><code>false</code> – спрашивать(По умолчанию).</li>
+<li><code>false</code> – Спрашивать(По умолчанию).</li>
 </ul>
 </li>
-<li><strong><code>one_download_libs</code></strong> – когда устанавливать/обновлять сторонние библиотеки для модулей.</li>
+<li><strong><code>one_download_libs</code></strong> – Когда устанавливать/обновлять сторонние библиотеки для модулей.</li>
 <li>
 <ul>
-<li><code>true</code> – только при установке модуля (не обновлять при запуске)(По умолчанию).</li>
-</ul>
-</li>
-<li>
-<ul>
-<li><code>false</code> – устанавливать при запуске.</li>
-</ul>
-</li>
-<li><strong><code>use_botvenv</code></strong> – использовать ли отдельное виртуальное окружение.</li>
-<li>
-<ul>
-<li><code>true</code> – использовать(По умолчанию)</li>
+<li><code>true</code> – Только при установке модуля (не обновлять при запуске)(По умолчанию).</li>
 </ul>
 </li>
 <li>
 <ul>
-<li><code>false</code> – не использовать</li>
+<li><code>false</code> – Устанавливать при запуске.</li>
+</ul>
+</li>
+<li><strong><code>use_botvenv</code></strong> – Использовать ли отдельное виртуальное окружение.</li>
+<li>
+<ul>
+<li><code>true</code> – Использовать(По умолчанию)</li>
+</ul>
+</li>
+<li>
+<ul>
+<li><code>false</code> – Не использовать</li>
 </ul>
 </li>
 <li><strong><code>check_for_update</code></strong> – Проверять ли обновления с интервалом.</li>
@@ -2045,37 +2072,63 @@
 <li><code>false</code> - Нет(По умолчанию).</li>
 </ul>
 </li>
+<li><strong><code>dev_mode</code></strong> - Переходить ли в режим разработчика.</li>
+<li>
+<ul>
+<li><code>true</code> - Да.</li>
+</ul>
+</li>
+<li>
+<ul>
+<li><code>false</code> - Нет(По умолчанию).</li>
+</ul>
+</li>
+<li>
+<ul>
+<li><strong><code>use_multiprocessing_account</code></strong> - Использовать ли новые процессы для аккаунтов.</li>
+</ul>
+</li>
+<li>
+<ul>
+<li><code>true</code> - Да.</li>
+</ul>
+</li>
+<li>
+<ul>
+<li><code>false</code> - Нет(По умолчанию).</li>
+</ul>
+</li>
 </ul>
 <h2 id="_22">Откат версии</h2>
 <p>Если в новых версиях вы столкнулись с критичной ошибкой, из за которой вы не можете запустить юзербота, на такой случай был создан файл <code>version_rollback.py</code>.</p>
 <p>Перейдите в корень папки ModuFlex, запустите файл <code>version_rollback.py</code>:</p>
 <h3 id="windows">На Windows</h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>botvenv<span class="se">\S</span>cripts<span class="se">\p</span>ython.exe<span class="w"> </span>version_rollback.py
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>botvenv<span class="se">\S</span>cripts<span class="se">\p</span>ython.exe<span class="w"> </span>version_rollback.py
 </span></code></pre></div>
 <h3 id="linux">На Linux</h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>botvenv<span class="se">\b</span>in<span class="se">\p</span>ython<span class="w"> </span>version_rollback.py
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>botvenv<span class="se">\b</span>in<span class="se">\p</span>ython<span class="w"> </span>version_rollback.py
 </span></code></pre></div>
 <h3 id="botvenv">Без botvenv</h3>
 <p>Если у вас нету или не работает botvenv:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>python<span class="w"> </span>version_rollback.py
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>python<span class="w"> </span>version_rollback.py
 </span></code></pre></div>
 <p>Если у вас не вышло, скорее всего, у вас не имеются нужные библиотеки. Введите это и попробуйте снова:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>pip<span class="w"> </span>install<span class="w"> </span>requests<span class="w"> </span>alive-progress
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>pip<span class="w"> </span>install<span class="w"> </span>requests<span class="w"> </span>alive-progress
 </span></code></pre></div>
 <h3 id="_23">Последний этап</h3>
 <p>У вас спросят версию:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>Введите версию(без префикса v):
+<div class="language-text highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>Введите версию(без префикса v):
 </span></code></pre></div>
 <p>Введите версию и ожидайте конца установки.</p>
 <h2 id="run-userbot">Запуск</h2>
 <p>Чтобы запустить юзербота, нужно ввести в консоль следующее:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>python<span class="w"> </span>run.py
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>python<span class="w"> </span>run.py
 </span></code></pre></div>
 <p>Если вы до этого ввели ваши данные в файл <code>config.ini</code>, то у вас должен заработать юзербот. Если нет, то <a href="https://t.me/flexyyyapk">обращайтесь в телеграм канал разработчика</a>, вам там помогут решить проблему.</p>
 <h2 id="_24">Установка плагинов</h2>
 <p>Перед тем, как скачивать, <a href="#run-userbot">запустите бота</a>.</p>
 <p>В любом чате отправьте:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>/dwplg &lt;ссылка на гит хаб плагина&gt;
+<div class="language-text highlight"><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>/dwplg &lt;ссылка на гит хаб плагина&gt;
 </span></code></pre></div>
 <p>Всё <strong>должно</strong> пройти нормально и отправится сообщение с успешной установкой.</p>
 <h2 id="api">Документация по API</h2>
@@ -2854,6 +2907,17 @@
 </ul>
 </li>
 </ul>
+<p><span class="type"><span class="moduflex">ModuFlex</span>.loads.<span class="function">Parameters</span>(self, <span class="parameter">parameters: </span><span class="Union"></span>[<span class="typed">List</span>, <span class="typed">Tuple</span>, <span class="typed">Dict</span>], <span class="parameter">re_flags: </span><span class="typed">int</span>=<span class="typed">0</span>)</span></p>
+<ul>
+<li>Описание: Класс Parameters предназначен для хранения и компиляции набора регулярных выражений, используемых для извлечения параметров из строки (например, из команды пользователя). Он удобен тем, что не нужно вручную искать параметры, которые не факт, что найдётся как должно и также, он передаётся в объект <code>Message</code> как поле <code>parameters</code>, если вы передавали нужный параметр.</li>
+<li>Первое появление: <a href="blog/posts/2026-07-07.md">ModuFlex v0.2.0b1 2026-07-07</a></li>
+<li>Методы:</li>
+<li>
+<ul>
+<li><span class="type"><span class="function">compile</span>(self, <span class="parameter">string: </span><span class="typed">str</span>) -&gt; <span class="typed">Union</span>[<span class="typed">Tuple</span>, <span class="typed">Dict</span>]</span>: Применяет скомпилированные рег. выражения к строке, возвращая параметры.</li>
+</ul>
+</li>
+</ul>
 <h2 id="_25">Ответы на частые вопросы</h2>
 <p>Здесь будут постепенно собираться ответы на частые вопросы, чтобы не приходилось дожидаться ответа. Если нужного ответа на вопрос не оказалось, <a href="https://t.me/flexyyyapk">обращайтесь в телеграм канал разработчика</a>.</p>
 <details class="question">
@@ -2919,7 +2983,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["navigation.instant", "navigation.instant.prefetch", "navigation.instant.progress", "navigation.instant.preview", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "toc.integrate", "content.code.copy", "content.code.annotate", "navigation.indexs", "search.suggest"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u043e \u0432 \u0431\u0443\u0444\u0435\u0440", "clipboard.copy": "\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432 \u0431\u0443\u0444\u0435\u0440", "search.result.more.one": "\u0415\u0449\u0451 1 \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.more.other": "\u0415\u0449\u0451 # \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.none": "\u0421\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e", "search.result.one": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e 1 \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0435", "search.result.other": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439: #", "search.result.placeholder": "\u041d\u0430\u0447\u043d\u0438\u0442\u0435 \u043f\u0435\u0447\u0430\u0442\u0430\u0442\u044c \u0434\u043b\u044f \u043f\u043e\u0438\u0441\u043a\u0430", "search.result.term.missing": "\u041e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442", "select.version": "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0435\u0440\u0441\u0438\u044e"}, "version": null}</script>
     
     
-      <script src="assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

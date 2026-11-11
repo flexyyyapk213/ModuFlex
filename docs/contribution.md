@@ -232,7 +232,7 @@ async def parameters_in_list(client: Client, message: types.Message):
     print(message.parameters) # ('qwerty', '123456')
 
 @func(filters.command('test'), parameters=Parameters({'a': r'\w+', 'b': r'\d+'}))
-async def parameters_in_list(client: Client, message: types.Message):
+async def parameters_in_dict(client: Client, message: types.Message):
     print(message.parameters) # {'a': 'qwerty', 'b': '123456'}
 ```
 
@@ -517,6 +517,9 @@ use_botvenv = true
 - - `true` - Да.
 - - `false` - Нет(По умолчанию).
 - **`dev_mode`** - Переходить ли в режим разработчика.
+- - `true` - Да.
+- - `false` - Нет(По умолчанию).
+- - **`use_multiprocessing_account`** - Использовать ли новые процессы для аккаунтов.
 - - `true` - Да.
 - - `false` - Нет(По умолчанию).
 

@@ -71,8 +71,7 @@ def get_config_data() -> Dict[str, Any]:
         with open('config.ini', encoding='utf-8') as file:
             config = file.read()
     except FileNotFoundError:
-        print('Файл конфигурации не был обнаружен.Создайте в корне папке файл config.ini и введите свои данные.(Подробнее в contribution.md)')
-        sys.exit()
+        raise FileNotFoundError('Файл конфигурации не был обнаружен.Создайте в корне папке файл config.ini и введите свои данные.(Подробнее в contribution.md)')
     
     send_msg_onstart_up = re.search(r'send_message\s*=\s*(true|false)', config)
     ask_to_downloads = re.search(r'ask_downloads\s*=\s(true|false)', config)
@@ -83,20 +82,22 @@ def get_config_data() -> Dict[str, Any]:
     experimental = re.search(r'experimental\s*=\s*(true|false)', config)
     additional_accounts = re.search(r'accounts\s*=\s*(\[.*?\])', config, re.DOTALL)
     dev_mode = re.search(r'dev_mode\s*=\s*(true|false)', config)
+    use_multiprocessing_account = re.search(r'use_multiprocessing_account\s*=\s*(true|false)', config)
 
     get_true_false = lambda value: {'true': True, 'false': False}[value]
 
     try:
         return {
             "send_message_on_startup": get_true_false(send_msg_onstart_up.group(1)) if send_msg_onstart_up is not None else False,
-            "ask_to_downloads": get_true_false(ask_to_downloads.group(1)) if ask_to_downloads is not None else None,
-            "one_download_libs": get_true_false(one_download_libs.group(1)) if one_download_libs is not None else None,
-            "check_for_update": get_true_false(check_for_update.group(1)) if check_for_update is not None else None,
+            "ask_to_downloads": get_true_false(ask_to_downloads.group(1)) if ask_to_downloads is not None else True,
+            "one_download_libs": get_true_false(one_download_libs.group(1)) if one_download_libs is not None else True,
+            "check_for_update": get_true_false(check_for_update.group(1)) if check_for_update is not None else True,
             "timeout_download_lib": int(timeout_download_lib.group(1)) if timeout_download_lib is not None else 120,
-            "use_botvenv": get_true_false(use_botvenv.group(1)) if use_botvenv is not None else None,
-            "experimental": get_true_false(experimental.group(1)) if experimental is not None else None,
+            "use_botvenv": get_true_false(use_botvenv.group(1)) if use_botvenv is not None else True,
+            "experimental": get_true_false(experimental.group(1)) if experimental is not None else False,
             "additional_accounts": json.loads(additional_accounts.group(1)) if additional_accounts is not None else None,
-            "dev_mode": get_true_false(dev_mode.group(1)) if dev_mode is not None else False
+            "dev_mode": get_true_false(dev_mode.group(1)) if dev_mode is not None else False,
+            "use_multiprocessing_account": get_true_false(use_multiprocessing_account.group(1)) if use_multiprocessing_account is not None else False
         }
     except Exception as e:
         print(e, '- Проверьте файл config.ini на наличии неправильного вида параметра.')

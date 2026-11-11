@@ -12,3 +12,5 @@ package-lock.json
 package.json
 plugins/AIFuncs/config.json
 tests/
+pyrightconfig.json
+.history/

@@ -6,8 +6,9 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-import re
 import traceback
+from concurrent.futures import ProcessPoolExecutor
+from utils import get_config_data
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -35,21 +36,7 @@ root_logger.addHandler(console_handler)
 
 venv_path = Path(sys.executable)
 
-try:
-    with open('config.ini', encoding='utf-8') as file:
-        config = file.read()
-except FileNotFoundError:
-    print('Файл конфигурации не был обнаружен.Создайте в корне папке файл config.ini и введите свои данные.(Подробнее в contribution.md)')
-    sys.exit()
-
-use_botvenv = re.search(r'use_botvenv\s*=\s*(true|false)', config)
-experimental = re.search(r'experimental\s*=\s*(true|false)', config)
-timeout_download_lib = re.search(r'timeout_download_lib\s*=\s*(\d+)', config)
-
-if use_botvenv is not None: use_botvenv = {'true': True, 'false': False}[use_botvenv.group(1)]
-if experimental is not None: experimental = {'true': True, 'false': False}[experimental.group(1)]
-if timeout_download_lib is not None: timeout_download_lib = int(timeout_download_lib.group(1))
-else: timeout_download_lib = 120
+config_data = get_config_data()
 
 def install_venv():
     venv_path = Path(sys.executable)
@@ -93,7 +80,7 @@ def install_venv():
         print(e)
 
 # Run with botvenv
-if use_botvenv:
+if config_data['use_botvenv']:
     install_venv()
 
 from __init__ import __modules__
@@ -120,14 +107,14 @@ if 'ModuFlex' in _config:
         for module in alive_it(__modules__, title='Проверка библиотек', spinner=styles.SPINNERS['pulse'], theme='smooth'):
             if importlib.util.find_spec(module) is None:
                 try:
-                    subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, timeout=timeout_download_lib)
+                    subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, timeout=config_data['timeout_download_lib'])
                 except subprocess.TimeoutExpired:
                     print(f'\033[31mНе удалось установить библиотеку {module}: Таймаут скачивания\033[0m')
 else:
     for module in alive_it(__modules__, title='Проверка библиотек', spinner=styles.SPINNERS['pulse'], theme='smooth'):
         if importlib.util.find_spec(module) is None:
             try:
-                subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, timeout=timeout_download_lib)
+                subprocess.run([sys.executable, '-m', 'pip', 'install', module], stdout=subprocess.DEVNULL, timeout=config_data['timeout_download_lib'])
             except subprocess.TimeoutExpired:
                 print(f'\033[31mНе удалось установить библиотеку {module}: Таймаут скачивания\033[0m')
 
@@ -210,11 +197,10 @@ from loads import ScriptState
 from main import api_id, api_hash, phone_number, password, ModuFlex
 
 from loads import Data
-from utils import get_config_data
 from web import app as approute
 import base64
 
-Data.experimental = experimental
+Data.experimental = config_data['experimental']
 Data.root_folder = os.path.dirname(__file__)
 
 max_retries = 10
@@ -283,7 +269,13 @@ async def start_bot() -> int:
                 workers=8) for acc in additional_accounts
             ])
         
-        tasks = [asyncio.create_task(multiply_run(acc, idx)) for idx, acc in enumerate(accounts)]
+        if config_data['use_multiprocessing_account']:
+            with ProcessPoolExecutor() as executor:
+                loop = asyncio.get_event_loop()
+
+                tasks = [loop.run_in_executor(executor, asyncio.run, multiply_run(acc, idx)) for idx, acc in enumerate(accounts)]
+        else:
+            tasks = [asyncio.create_task(multiply_run(acc, idx)) for idx, acc in enumerate(accounts)]
     
     await asyncio.gather(result, return_exceptions=True)
 

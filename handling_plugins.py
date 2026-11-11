@@ -7,12 +7,13 @@ from packaging import version
 from packaging.specifiers import SpecifierSet
 from threading import Thread
 import importlib
+from typing import List, Optional
 
 from __init__ import __version__
 from loads import Data, Description, download_library
 
-from watchdog.events import FileSystemEventHandler, DirModifiedEvent, FileModifiedEvent
-from pyrogram import Client
+from watchdog.events import FileSystemEventHandler
+from pyrogram.client import Client
 
 logger = logging.getLogger(__name__)
 
@@ -25,75 +26,14 @@ class HotReload(FileSystemEventHandler):
             return
 
         if event.event_type in ('modified', 'created', 'moved') and not event.src_path.endswith(".pyc"):
-            parts_path = os.path.normpath(event.src_path).split(os.sep)
+            parts_path: List[str] = os.path.normpath(str(event.src_path)).split(os.sep)
 
             pack_name: str = parts_path[parts_path.index("plugins") + 1]
             Data.__clear_plugin__(pack_name)
             importlib.reload(importlib.import_module("plugins." + pack_name))
             handle_plugin(pack_name, self.client)
 
-
-def handling_plugins():
-    folders = os.listdir('plugins')
-
-    for folder in folders:
-        try:
-            if ' ' in folder:
-                continue
-            
-            init_file = os.path.join('plugins', folder, '__init__.py')
-            if os.path.exists(init_file):
-                Data.cache.update({
-                    folder: {
-                        "funcs": {},
-                        "classes": {},
-                        "routes": {},
-                        "initialization": None
-                    }
-                                })
-                
-                if os.path.exists(os.path.join('plugins', folder, '__modules__.txt')):
-                    if not Data.config['ModuFlex'].get('libs_is_dwnld', False) and Data.one_download_libs or not Data.one_download_libs:
-                        with open(os.path.join('plugins', folder, '__modules__.txt'), encoding='utf-8') as modules:
-                            download_library(modules.readlines())
-
-                md = __import__('plugins.' + folder)
-
-                if hasattr(dict(md.__dict__.items())[folder], '__description__'):
-                    if not isinstance(dict(md.__dict__.items())[folder].__description__, Description):
-                        print(f'\033[41mОшибка в плагине {folder}: Описание не корректное\033[0m')
-                        Data.failed_modules += 1
-                        continue
-                    
-                    update_command_information(dict(md.__dict__.items())[folder].__description__, folder)
-                
-                if hasattr(dict(md.__dict__.items())[folder], 'initialization'):
-                    if not inspect.isfunction(dict(md.__dict__.items())[folder].initialization):
-                        print(f'\033[41mОшибка в плагине {folder}: инициализация не корректная\033[0m')
-                        Data.failed_modules += 1
-                        continue
-                    
-                    Data.cache[folder]["initialization"] = dict(md.__dict__.items())[folder].initialization
-
-                if os.path.exists(os.path.join('plugins', folder, 'manifest.json')):
-                    with open(os.path.join('plugins', folder, 'manifest.json'), encoding='utf-8') as f:
-                        manifest = json.load(f)
-                    
-                    spec = SpecifierSet(manifest['mf_version'])
-                    current = version.parse(__version__)
-
-                    if not spec.contains(current):
-                        Data.cache.pop(folder)
-                        try:
-                            Data.description.pop(folder)
-                        except KeyError:
-                            pass
-        except Exception:
-            traceback.print_exc()
-            logger.warning(traceback.format_exc())
-            Data.failed_modules += 1
-
-def handle_plugin(pack_name: str, client: Client):
+def handle_plugin(pack_name: str, client: Optional[Client]=None):
     try:
         Data.cache.update({
             pack_name: {
@@ -108,7 +48,7 @@ def handle_plugin(pack_name: str, client: Client):
             with open(os.path.join('plugins', pack_name, '__modules__.txt'), encoding='utf-8') as modules:
                 download_library(modules.readlines())
         
-        md = __import__('plugins.' + pack_name)
+        md = importlib.import_module('plugins.' + pack_name)
 
         if hasattr(dict(md.__dict__.items())[pack_name], '__description__'):
             if not isinstance(dict(md.__dict__.items())[pack_name].__description__, Description):
@@ -140,12 +80,21 @@ def handle_plugin(pack_name: str, client: Client):
                 except KeyError:
                     pass
 
-        if Data.cache.get(pack_name, {}).get("initialization", None) is not None:
+        if Data.cache.get(pack_name, {}).get("initialization", None) is not None and client is not None:
             Thread(target=Data.cache[pack_name]["initialization"], args=(client,)).start()
     except Exception:
         traceback.print_exc()
         logger.warning(traceback.format_exc())
         Data.failed_modules += 1
+
+def handling_plugins():
+    folders = os.listdir('plugins')
+
+    for folder in folders:
+        if ' ' in folder:
+            continue
+
+        handle_plugin(folder)
 
 def update_command_information(description: Description, plugin_name: str):
     if plugin_name not in Data.description:
