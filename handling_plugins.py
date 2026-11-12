@@ -50,21 +50,21 @@ def handle_plugin(pack_name: str, client: Optional[Client]=None):
         
         md = importlib.import_module('plugins.' + pack_name)
 
-        if hasattr(dict(md.__dict__.items())[pack_name], '__description__'):
-            if not isinstance(dict(md.__dict__.items())[pack_name].__description__, Description):
+        if hasattr(md, '__description__'):
+            if not isinstance(md.__description__, Description):
                 print(f'\033[41mОшибка в плагине {pack_name}: Описание не корректное\033[0m')
                 Data.failed_modules += 1
                 return
             
-            update_command_information(dict(md.__dict__.items())[pack_name].__description__, pack_name)
+            update_command_information(md.__description__, pack_name)
         
-        if hasattr(dict(md.__dict__.items())[pack_name], 'initialization'):
-            if not inspect.isfunction(dict(md.__dict__.items())[pack_name].initialization):
+        if hasattr(md, 'initialization'):
+            if not inspect.isfunction(md.initialization):
                 print(f'\033[41mОшибка в плагине {pack_name}: инициализация не корректная\033[0m')
                 Data.failed_modules += 1
                 return
             
-            Data.cache[pack_name]["initialization"] = dict(md.__dict__.items())[pack_name].initialization
+            Data.cache[pack_name]["initialization"] = md.initialization
         
         if os.path.exists(os.path.join('plugins', pack_name, 'manifest.json')):
             with open(os.path.join('plugins', pack_name, 'manifest.json'), encoding='utf-8') as f:

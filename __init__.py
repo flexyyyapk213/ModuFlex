@@ -13,4 +13,4 @@ __news__ = """✨Обновление 0.2.0b4
 ```
 """
 __python__ = '>=3.8'
-__modules__ = ['terminaltexteffects', 'requests', 'platform', 'pyfiglet', 'alive_progress', 'packaging', 'tgcrypto', 'apscheduler', 'quart', 'aiohttp', 'tzdata', 'kurigram', 'watchdog']
+__modules__ = ['terminaltexteffects', 'requests', 'platform', 'pyfiglet', 'alive_progress', 'packaging', 'tgcrypto', 'apscheduler', 'quart', 'aiohttp', 'tzdata', 'kurigram', 'watchdog', 'kurigram[qrcode]']

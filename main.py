@@ -105,6 +105,7 @@ async def help(_, msg: types.Message):
         help_text = 'Список плагинов:\n0) <code>ModuFlex</code>&lt;MAIN&gt;\n'
 
         plgs_desc = copy.deepcopy(Data.description)
+        print(plgs_desc)
 
         plgs_desc.pop('ModuFlex')
 
@@ -682,7 +683,7 @@ async def check_plugin_for_webinterface(_, message: types.Message):
     return await message.edit_text(f'У данного плагина существует своя страница.\nhttp://127.0.0.1:1205/{plugin_name}/')
 
 class ModuFlex:
-    def __init__(self, app: Client, approute: Quart, is_basic: bool=False, **kwargs):
+    def __init__(self, app: Client, is_basic: bool=False, **kwargs):
         self.stop = ScriptState.started
         self.app = app
         self.auto_check_for_update = AsyncIOScheduler()
@@ -759,7 +760,7 @@ class ModuFlex:
 
                 Data.config['ModuFlex']['dwnlds_libs_date'] = datetime.today().date().strftime('%Y-%m-%d')
 
-            if _date == datetime.today().date():
+            if _date <= datetime.today().date():
                 Data.skip_downloads = True
             else:
                 pass

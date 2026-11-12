@@ -205,7 +205,6 @@ from loads import ScriptState
 from main import api_id, api_hash, phone_number, password, ModuFlex
 
 from loads import Data
-from web import app as approute
 import base64
 
 Data.experimental = config_data['experimental']
@@ -224,15 +223,19 @@ def silence_peer_error(loop, context):
         return
     loop.default_exception_handler(context)
 
-async def multiply_run(app: Client, idx: int, is_basic: bool=False):
-    global approute
+def sync_run(*args, **kwargs):
+    asyncio.run(multiply_run(*args, **kwargs))
+
+async def multiply_run(idx: int, is_basic: bool=False, *acc_param):
+    app = Client(acc_param[0], api_id=acc_param[1], api_hash=acc_param[2], phone_number=acc_param[3], password=acc_param[4], max_concurrent_transmissions=acc_param[5], workers=acc_param[6])
+    setattr(app, 'user_id_session', idx)
     
-    account = ModuFlex(app, approute, is_basic)
+    account = ModuFlex(app, is_basic)
+
+    result = ScriptState.exit
 
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(silence_peer_error)
-
-    result = ScriptState.exit
 
     try:
         async with app:
@@ -243,23 +246,18 @@ async def multiply_run(app: Client, idx: int, is_basic: bool=False):
     if result == ScriptState.restart and not is_basic:
         print(f'Аккаунт под номером {idx} перезапускает работу.')
 
-        return await multiply_run(app, idx, is_basic)
+        return await multiply_run(idx=idx, is_basic=is_basic, *acc_param)
     elif result == ScriptState.exit:
         print(f'Аккаунт под номером {idx} завершил работу.')
 
     return result
 
 async def start_bot() -> int:
-    global retries
+    global retries, loop
 
-    app = Client(
-            'db', api_id=api_id.group(1) if api_id is not None else None, api_hash=api_hash.group(1) if api_hash is not None else None,
-            phone_number=phone_number.group(1) if phone_number is not None else None,
-            password=password.group(1) if password is not None else None, max_concurrent_transmissions=20, workers=8
-            )
-
-    result = asyncio.create_task(multiply_run(app, -1, True))
-
+    result = asyncio.create_task(multiply_run(-1, True, *('db', api_id.group(1) if api_id is not None else None, api_hash.group(1) if api_hash is not None else None,
+                phone_number.group(1) if phone_number is not None else None,
+                password.group(1) if password is not None else None, 20, 8, root_logger)))
     tasks = []
     
     #NOTE: Experimental
@@ -271,19 +269,20 @@ async def start_bot() -> int:
             additional_accounts = []
 
         accounts.extend([
-            Client(
-                base64.b64encode(str(acc['phone_number']).encode()).decode(), api_id=api_id.group(1) if api_id is not None else None, api_hash=api_hash.group(1) if api_hash is not None else None,
-                phone_number=acc['phone_number'], password=acc['password'], max_concurrent_transmissions=20,
-                workers=8) for acc in additional_accounts
+            (
+                base64.b64encode(str(acc['phone_number']).encode()).decode(), api_id.group(1) if api_id is not None else None, api_hash.group(1) if api_hash is not None else None,
+                acc['phone_number'], acc['password'], 20,
+                8) for acc in additional_accounts
             ])
         
         if config_data['use_multiprocessing_account']:
-            with ProcessPoolExecutor() as executor:
-                loop = asyncio.get_event_loop()
+            executor = ProcessPoolExecutor()
 
-                tasks = [loop.run_in_executor(executor, asyncio.run, multiply_run(acc, idx)) for idx, acc in enumerate(accounts)]
+            loop = asyncio.get_event_loop()
+
+            tasks = [loop.run_in_executor(executor, sync_run, idx, True, *acc, root_logger) for idx, acc in enumerate(accounts)]
         else:
-            tasks = [asyncio.create_task(multiply_run(acc, idx)) for idx, acc in enumerate(accounts)]
+            tasks = [asyncio.create_task(multiply_run(idx, False, *acc, root_logger)) for idx, acc in enumerate(accounts)]
     
     await asyncio.gather(result, return_exceptions=True)
 
@@ -291,34 +290,37 @@ async def start_bot() -> int:
     if Data.experimental:
         for task in tasks:
             task.cancel()
-    
-    del app
-    gc.collect()
+
+        try:
+            executor.shutdown(wait=True)
+        except:
+            pass
 
     return result.result()
 
-while retries < max_retries:
-    try:
-        result = asyncio.run(start_bot())
+if __name__ == "__main__":
+    while retries < max_retries:
+        try:
+            result = loop.run_until_complete(start_bot())
 
-        if result == ScriptState.exit:
-            sys.exit()
-        elif result == ScriptState.restart:
-            subprocess.run([sys.executable, *sys.argv])
-            sys.exit()
-    except KeyboardInterrupt:
-        print('<3')
-        break
-    except (ConnectionError, TimeoutError) as e:
-        print(e)
-        print('Ошибка с соединением...')
-        sleep(retry_delay)
-        continue
-    except OperationalError as e:
-        print(e, '.Возможно скрипт работает где то ещё.')
-        sleep(5)
-    except Exception as e:
-        print(e)
-        continue
+            if result == ScriptState.exit:
+                sys.exit()
+            elif result == ScriptState.restart:
+                subprocess.run([sys.executable, *sys.argv])
+                sys.exit()
+        except KeyboardInterrupt:
+            print('<3')
+            break
+        except (ConnectionError, TimeoutError) as e:
+            print(e)
+            print('Ошибка с соединением...')
+            sleep(retry_delay)
+            continue
+        except OperationalError as e:
+            print(e, '.Возможно скрипт работает где то ещё.')
+            sleep(5)
+        except Exception as e:
+            print(e)
+            continue
 
-    retries += 1
+        retries += 1
