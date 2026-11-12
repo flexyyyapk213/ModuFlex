@@ -16,6 +16,8 @@ except ModuleNotFoundError:
     except:
         pass
 
+    from utils import get_config_data
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Go to the script root folder
