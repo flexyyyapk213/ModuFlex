@@ -8,7 +8,13 @@ import sys
 from pathlib import Path
 import traceback
 from concurrent.futures import ProcessPoolExecutor
-from utils import get_config_data
+try:
+    from utils import get_config_data
+except ModuleNotFoundError:
+    try:
+        subprocess.run([sys.executable, '-m', 'pip', 'install', 'requests', 'packaging'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except:
+        pass
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
