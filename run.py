@@ -143,7 +143,7 @@ if 'node_modules' not in os.listdir() or not is_node_installed():
                     subprocess.run(["winget", "install", "--id", "OpenJS.NodeJS", "-e", "--silent"], check=True)
                 else:
                     print("Установщик Chocolatey или winget не найден. Пожалуйста, установите Node.js вручную: https://nodejs.org/")
-            elif system == "linux":
+            elif system in ["linux", "android"]:
                 if shutil.which('pkg'):
                     subprocess.run(["pkg", "update", "&&", "pkg", "upgrade"], check=True)
                     subprocess.run(["pkg", "install", "nodejs-lts"], check=True)
