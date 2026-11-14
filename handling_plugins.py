@@ -87,6 +87,7 @@ def handle_plugin(pack_name: str, client: Optional[Client]=None):
         logger.warning(traceback.format_exc())
         Data.failed_modules += 1
 
+
 def handling_plugins():
     folders = os.listdir('plugins')
 

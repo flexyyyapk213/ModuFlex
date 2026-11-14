@@ -828,6 +828,7 @@ def download_library(libs: List[str]) -> None:
         except subprocess.TimeoutExpired:
             print(f'\033[41 Превышен лимит ожидания скачивания библиотеки {_library}. Возможно библиотека не поддерживается вашим устройством или плохое интернет соединение. \033[0m')
 
+
 def sandbox_exec(code: str, _globals: Optional[Dict]=None, _locals: Optional[Dict]=None):
     """
     Выполняет указанный Python-код в изолированной среде (песочнице WebAssembly).

@@ -682,6 +682,7 @@ async def check_plugin_for_webinterface(_, message: types.Message):
     
     return await message.edit_text(f'У данного плагина существует своя страница.\nhttp://127.0.0.1:1205/{plugin_name}/')
 
+
 class ModuFlex:
     def __init__(self, app: Client, is_basic: bool=False, **kwargs):
         self.stop = ScriptState.started

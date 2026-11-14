@@ -83,6 +83,7 @@ def get_config_data() -> Dict[str, Any]:
     experimental = re.search(r'experimental\s*=\s*(true|false)', config)
     additional_accounts = re.search(r'accounts\s*=\s*(\[.*?\])', config, re.DOTALL)
     dev_mode = re.search(r'dev_mode\s*=\s*(true|false)', config)
+    use_multiprocessing_account = re.search(r'use_multiprocessing_account\s*=\s*(true|false)', config)
 
     get_true_false = lambda value: {'true': True, 'false': False}[value]
 
@@ -97,6 +98,7 @@ def get_config_data() -> Dict[str, Any]:
             "experimental": get_true_false(experimental.group(1)) if experimental is not None else None,
             "additional_accounts": json.loads(additional_accounts.group(1)) if additional_accounts is not None else None,
             "dev_mode": get_true_false(dev_mode.group(1)) if dev_mode is not None else False
+            "use_multiprocessing_account": get_true_false(use_multiprocessing_account.group(1)) if use_multiprocessing_account is not None else False
         }
     except Exception as e:
         print(e, '- Проверьте файл config.ini на наличии неправильного вида параметра.')

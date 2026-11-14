@@ -11,6 +11,7 @@ __news__ = """✨Обновление 0.2.0b4
 - Исправлено опознавания типа ОС при запуске (из за этого не устанавливался Node.js).
 - Мелкие исправления/улучшения
 ```
+
 """
 __python__ = '>=3.8'
 __modules__ = ['terminaltexteffects', 'requests', 'platform', 'pyfiglet', 'alive_progress', 'packaging', 'tgcrypto', 'apscheduler', 'quart', 'aiohttp', 'tzdata', 'kurigram', 'watchdog', 'kurigram[qrcode]']

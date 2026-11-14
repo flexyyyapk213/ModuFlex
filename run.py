@@ -298,6 +298,7 @@ async def start_bot() -> int:
 
     return result.result()
 
+
 if __name__ == "__main__":
     while retries < max_retries:
         try:
