@@ -119,7 +119,11 @@ class MappingConfig(dict):
         return self._dict.copy()
     
     def get(self, key, default=None) -> Union[Dict, Any]:
-        return MappingConfig(self.plugin_name, key) if self._dict.get(key, default) != default else default
+        # return MappingConfig(self.plugin_name, key) if self._dict.get(key, default) != default else default
+        if self._dict.get(key, None) is not None:
+            return MappingConfig(self.plugin_name, key) if isinstance(self._dict[key], dict) else self._dict[key]
+        else:
+            return default
     
     def _save(self) -> None:
         with open('configuration.json', 'w', encoding='utf-8') as f:
