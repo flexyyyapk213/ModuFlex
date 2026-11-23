@@ -97,7 +97,7 @@ def check_updates():
     elif fresh_version < version_now:
         features_of_the_version.append('you_are_tester')
 
-async def help(_, msg: types.Message):
+async def help(app, msg: types.Message):
     help_text = ''
     spl_txt = msg.text.split()
 
@@ -227,7 +227,7 @@ async def help(_, msg: types.Message):
         if pages > int(pages): pages = int(pages) + 1
 
         try:
-            for i, func_name, func in enumerate(funcs.items()):
+            for i, (func_name, func) in enumerate(funcs.items()):
                 if i < (page-1)*25:
                     continue
 

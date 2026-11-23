@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Union, Optional, Any, Dict, List, Tuple
+from typing import Callable, Iterable, Union, Optional, Any, Dict, List, Tuple, TypedDict
 import inspect
 from pyrogram import filters
 import os
@@ -45,6 +45,10 @@ class ScriptState(int, Enum):
     restart = 1
     error = -1
     exit = 2
+
+class SandboxResult(TypedDict):
+    status: str
+    output: str
 
 class MappingConfig(dict):
     """
@@ -119,9 +123,9 @@ class MappingConfig(dict):
         return self._dict.copy()
     
     def get(self, key, default=None) -> Union[Dict, Any]:
-        # return MappingConfig(self.plugin_name, key) if self._dict.get(key, default) != default else default
-        if self._dict.get(key, None) is not None:
-            return MappingConfig(self.plugin_name, key) if isinstance(self._dict[key], dict) else self._dict[key]
+        get_key = self._dict.get(key, default)
+        if get_key is not None:
+            return MappingConfig(self.plugin_name, self._keys + [key]) if isinstance(get_key, dict) else get_key
         else:
             return default
     
@@ -841,4 +845,4 @@ def sandbox_exec(code: str, _globals: Optional[Dict]=None, _locals: Optional[Dic
     Returns:
         Result: Результат выполнения кода, включая вывод, ошибки и дополнительные параметры.
     """
-    return Data.sandbox_executor.run_code(code, _globals, _locals)
+    return SandboxResult(**Data.sandbox_executor.run_code(code, _globals, _locals))

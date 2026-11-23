@@ -97,7 +97,7 @@ def get_config_data() -> Dict[str, Any]:
             "use_botvenv": get_true_false(use_botvenv.group(1)) if use_botvenv is not None else None,
             "experimental": get_true_false(experimental.group(1)) if experimental is not None else None,
             "additional_accounts": json.loads(additional_accounts.group(1)) if additional_accounts is not None else None,
-            "dev_mode": get_true_false(dev_mode.group(1)) if dev_mode is not None else False
+            "dev_mode": get_true_false(dev_mode.group(1)) if dev_mode is not None else False,
             "use_multiprocessing_account": get_true_false(use_multiprocessing_account.group(1)) if use_multiprocessing_account is not None else False
         }
     except Exception as e:

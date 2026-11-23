@@ -505,7 +505,7 @@ async def export_chat_history(client: Client, message: Message):
     try:
         _format = message.text.split()[1].lower()
     except IndexError:
-        return await message.edit_text('Вы не верно ввели параметры: /export <формат(HTML или json)>')
+        return await message.edit_text('Вы не верно ввели параметры: /export <формат(xml или json)>')
     
     chat = message.chat
 
